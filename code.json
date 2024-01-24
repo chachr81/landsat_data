@@ -1,0 +1,38 @@
+[
+    {
+        "name": "M2M Landsat Bands Bundle and Band Groups Download",
+        "organization": "U.S. Geological Survey",
+        "description": "Download Landsat Collection 2 bands, bundles, & band groups with M2M API in this notebook.",
+        "version": "main",
+        "status": "Development",
+        "permissions": {
+            "usageType": "openSource",
+            "licenses": [
+                {
+                    "name": "Unlicense",
+                    "URL": "https://code.usgs.gov/eros-user-services/machine_to_machine/m2m_landsat_bands_bundle_download/-/raw/main/LICENSE.md"
+                }
+            ]
+        },
+        "homepageURL": "https://code.usgs.gov/eros-user-services/machine_to_machine/m2m_landsat_bands_bundle_download",
+        "downloadURL": "https://code.usgs.gov/eros-user-services/machine_to_machine/m2m_landsat_bands_bundle_download/-/archive/main/m2m_landsat_bands_bundle_download-main.zip",
+        "disclaimerURL": "https://code.usgs.gov/eros-user-services/machine_to_machine/m2m_landsat_bands_bundle_download/-/raw/main/DISCLAIMER.md",
+        "repositoryURL": "https://code.usgs.gov/eros-user-services/machine_to_machine/m2m_landsat_bands_bundle_download.git",
+        "vcs": "git",
+        "laborHours": 0,
+        "tags": [
+            "Landsat",
+            "M2M"
+        ],
+        "languages": [
+            "Python"
+        ],
+        "contact": {
+            "name": "Tonian Robinson",
+            "email": "trobinson@contractor.usgs.gov"
+        },
+        "date": {
+            "metadataLastUpdated": "2024-01-24"
+        }
+    }
+]
