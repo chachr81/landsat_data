@@ -7518,7 +7518,6 @@ The USGS/EROS User Services team assesses these requests. Contact USGS EROS User
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <h2 id="Setup"><strong>Setup</strong><a class="anchor-link" href="#Setup">¶</a></h2><h3 id="Import-necessary-libraries"><strong>Import necessary libraries</strong><a class="anchor-link" href="#Import-necessary-libraries">¶</a></h3>
 </div>
 </div>
@@ -7830,7 +7829,6 @@ Directory 'utils' already exists.
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <h2 id="User-Input"><strong>User Input</strong><a class="anchor-link" href="#User-Input">¶</a></h2><h4 id="Login-by-entering-EROS-Registration-System-(EROS)-username-and-password-when-prompted"><strong>Login by entering <a href="https://ers.cr.usgs.gov/https://ers.cr.usgs.gov/">EROS Registration System (EROS)</a> <em>username</em> and <em>password</em> when prompted</strong><a class="anchor-link" href="#Login-by-entering-EROS-Registration-System-(EROS)-username-and-password-when-prompted">¶</a></h4>
 </div>
 </div>
@@ -7956,7 +7954,6 @@ Login Successful, API Key Received!
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <h2 id="1.-Set-File-Download-Type-"><strong>1. Set File Download Type <a id="setdownloadtype"></a></strong><a class="anchor-link" href="#1.-Set-File-Download-Type-">¶</a></h2><h4 id="Uncomment-your-preferred-download-type-before-proceeding."><span style="color:#DF0101">Uncomment your preferred download type before proceeding.</span><a class="anchor-link" href="#Uncomment-your-preferred-download-type-before-proceeding.">¶</a></h4>
 </div>
 </div>
@@ -8054,7 +8051,6 @@ Must include *<strong>bandNames</strong>* for each band e.g. *<strong>'SR_B2'</s
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <h2 id="2.-Create-an-Area-of-Interest-(AOI)-GeoJSON-Text-File-"><strong>2. Create an Area of Interest (AOI) GeoJSON Text File</strong> <a id="createaoi"></a><a class="anchor-link" href="#2.-Create-an-Area-of-Interest-(AOI)-GeoJSON-Text-File-">¶</a></h2>
 </div>
 </div>
@@ -8199,7 +8195,7 @@ Datum: World Geodetic System 1984 ensemble
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">folium</span>
 <span class="n">m</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span><span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">aoi_geodf</span><span class="o">.</span><span class="n">centroid</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">aoi_geodf</span><span class="o">.</span><span class="n">centroid</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">zoom_start</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">tiles</span><span class="o">=</span><span class="s2">"openstreetmap"</span><span class="p">,</span>\
-              <span class="n">width</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span><span class="n">height</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span> <span class="c1">#add n estimate of where the center of the polygon would be located\</span>
+              <span class="n">width</span><span class="o">=</span><span class="s2">"90%"</span><span class="p">,</span><span class="n">height</span><span class="o">=</span><span class="s2">"90%"</span><span class="p">,</span> <span class="n">attributionControl</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="c1">#add n estimate of where the center of the polygon would be located\</span>
                                         <span class="c1">#for the location [latitude longitude]</span>
 </pre></div>
 </div>
@@ -8259,10 +8255,10 @@ Datum: World Geodetic System 1984 ensemble
             &lt;meta name="viewport" content="width=device-width,
                 initial-scale=1.0, maximum-scale=1.0, user-scalable=no" /&gt;
             &lt;style&gt;
-                #map_f4a2eb7d74b5121b0c5d4d04c9a649c5 {
+                #map_6131ff0976dcb22b973088ab17244eb3 {
                     position: relative;
-                    width: 1000.0px;
-                    height: 500.0px;
+                    width: 90.0%;
+                    height: 90.0%;
                     left: 0.0%;
                     top: 0.0%;
                 }
@@ -8273,20 +8269,21 @@ Datum: World Geodetic System 1984 ensemble
 &lt;body&gt;
     
     
-            &lt;div class="folium-map" id="map_f4a2eb7d74b5121b0c5d4d04c9a649c5" &gt;&lt;/div&gt;
+            &lt;div class="folium-map" id="map_6131ff0976dcb22b973088ab17244eb3" &gt;&lt;/div&gt;
         
 &lt;/body&gt;
 &lt;script&gt;
     
     
-            var map_f4a2eb7d74b5121b0c5d4d04c9a649c5 = L.map(
-                "map_f4a2eb7d74b5121b0c5d4d04c9a649c5",
+            var map_6131ff0976dcb22b973088ab17244eb3 = L.map(
+                "map_6131ff0976dcb22b973088ab17244eb3",
                 {
                     center: [61.243249999999996, -149.95249999999996],
                     crs: L.CRS.EPSG3857,
                     zoom: 8,
                     zoomControl: true,
                     preferCanvas: false,
+                    attributionControl: 0,
                 }
             );
 
@@ -8294,35 +8291,35 @@ Datum: World Geodetic System 1984 ensemble
 
         
     
-            var tile_layer_574a52d9da1818b6b13861340685ff66 = L.tileLayer(
+            var tile_layer_9baef0e5db306cbd5b37df7ba8ba8b69 = L.tileLayer(
                 "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
                 {"attribution": "Data by \u0026copy; \u003ca target=\"_blank\" href=\"http://openstreetmap.org\"\u003eOpenStreetMap\u003c/a\u003e, under \u003ca target=\"_blank\" href=\"http://www.openstreetmap.org/copyright\"\u003eODbL\u003c/a\u003e.", "detectRetina": false, "maxNativeZoom": 18, "maxZoom": 18, "minZoom": 0, "noWrap": false, "opacity": 1, "subdomains": "abc", "tms": false}
-            ).addTo(map_f4a2eb7d74b5121b0c5d4d04c9a649c5);
+            ).addTo(map_6131ff0976dcb22b973088ab17244eb3);
         
     
-        function geo_json_e5f6fa0a59c787dc116c12f9d276f28a_styler(feature) {
+        function geo_json_c9ba0f2bb3fd66ed79924bbb9961fa4e_styler(feature) {
             switch(feature.id) {
                 default:
                     return {"fillColor": "blue"};
             }
         }
 
-        function geo_json_e5f6fa0a59c787dc116c12f9d276f28a_onEachFeature(feature, layer) {
+        function geo_json_c9ba0f2bb3fd66ed79924bbb9961fa4e_onEachFeature(feature, layer) {
             layer.on({
             });
         };
-        var geo_json_e5f6fa0a59c787dc116c12f9d276f28a = L.geoJson(null, {
-                onEachFeature: geo_json_e5f6fa0a59c787dc116c12f9d276f28a_onEachFeature,
+        var geo_json_c9ba0f2bb3fd66ed79924bbb9961fa4e = L.geoJson(null, {
+                onEachFeature: geo_json_c9ba0f2bb3fd66ed79924bbb9961fa4e_onEachFeature,
             
-                style: geo_json_e5f6fa0a59c787dc116c12f9d276f28a_styler,
+                style: geo_json_c9ba0f2bb3fd66ed79924bbb9961fa4e_styler,
         });
 
-        function geo_json_e5f6fa0a59c787dc116c12f9d276f28a_add (data) {
-            geo_json_e5f6fa0a59c787dc116c12f9d276f28a
+        function geo_json_c9ba0f2bb3fd66ed79924bbb9961fa4e_add (data) {
+            geo_json_c9ba0f2bb3fd66ed79924bbb9961fa4e
                 .addData(data)
-                .addTo(map_f4a2eb7d74b5121b0c5d4d04c9a649c5);
+                .addTo(map_6131ff0976dcb22b973088ab17244eb3);
         }
-            geo_json_e5f6fa0a59c787dc116c12f9d276f28a_add({"bbox": [-150.9495, 61.0031, -148.9555, 61.4834], "features": [{"bbox": [-150.9495, 61.0031, -148.9555, 61.4834], "geometry": {"coordinates": [[[-148.9555, 61.4834], [-150.9495, 61.4834], [-150.9495, 61.0031], [-148.9555, 61.0031], [-148.9555, 61.4834]]], "type": "Polygon"}, "id": "0", "properties": {}, "type": "Feature"}], "type": "FeatureCollection"});
+            geo_json_c9ba0f2bb3fd66ed79924bbb9961fa4e_add({"bbox": [-150.9495, 61.0031, -148.9555, 61.4834], "features": [{"bbox": [-150.9495, 61.0031, -148.9555, 61.4834], "geometry": {"coordinates": [[[-148.9555, 61.4834], [-150.9495, 61.4834], [-150.9495, 61.0031], [-148.9555, 61.0031], [-148.9555, 61.4834]]], "type": "Polygon"}, "id": "0", "properties": {}, "type": "Feature"}], "type": "FeatureCollection"});
 
         
 &lt;/script&gt;
@@ -8338,7 +8335,6 @@ Datum: World Geodetic System 1984 ensemble
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <h2 id="3.-Retrieve-Scenes-using-the-%5Bscene-search%5D(https://m2m.cr.usgs.gov/api/docs/reference/%23scene-search)-endpoint-"><strong>3. Retrieve Scenes using the [</strong><em>scene-search</em><strong>](<a href="https://m2m.cr.usgs.gov/api/docs/reference/#scene-search">https://m2m.cr.usgs.gov/api/docs/reference/#scene-search</a>) endpoint</strong> <a id="retrievescenes"></a><a class="anchor-link" href="#3.-Retrieve-Scenes-using-the-%5Bscene-search%5D(https://m2m.cr.usgs.gov/api/docs/reference/%23scene-search)-endpoint-">¶</a></h2><p>The <a href="https://m2m.cr.usgs.gov/api/docs/reference/#scene-search">*<strong>scene-search</strong>*</a> is used for searching for scenes within a dataset collection. A *<strong>'datasetName'</strong>* parameter is required; it is used to identify the dataset to search for. In this case, we will be downloading bands from the *<strong>Landsat 8-9 Operational Land Imager and Thermal Infrared Sensor Collection 2 Level-2</strong>* with a datasetName: *<strong>landsat_ot_c2_l2</strong>*.</p>
 </div>
 </div>
@@ -8730,7 +8726,6 @@ Datum: World Geodetic System 1984 ensemble
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <h2 id="4.-Request-a-scene-list-add"><strong>4. Request a <a href="https://m2m.cr.usgs.gov/api/docs/reference/#scene-list-add"><em>scene-list-add</em></a></strong><a id="scenelistadd"></a><a class="anchor-link" href="#4.-Request-a-scene-list-add">¶</a></h2><p>A <a href="https://m2m.cr.usgs.gov/api/docs/reference/#scene-list-add">*<strong>scene-list-add</strong>*</a> compiles a list of scene or product IDs for download. A user defined  *<strong><code>listId</code></strong>* name is required.</p>
 <h3 id="4.1-Create-a-list-of-entityId's"><strong>4.1 Create a list of entityId's</strong><a class="anchor-link" href="#4.1-Create-a-list-of-entityId's">¶</a></h3><p>The <a href="https://m2m.cr.usgs.gov/api/docs/reference/#scene-list-add">*<strong>scene-list-add</strong>*</a> endpoint requires a list of <strong><code>entityIds</code></strong>, these are <a href="https://www.usgs.gov/centers/eros/science/landsat-collection-2-data-dictionary#landsat_scene_id">Landsat Scene Identifiers</a> that remain consistent for all levels and products available for each scene. Users can also enter a list of <strong><code>displayIds</code></strong> (also known as <a href="https://www.usgs.gov/centers/eros/science/landsat-collection-2-data-dictionary#landsat_product_id">Landsat Product Identifiers</a>) in place of a list of <strong><code>entityIds</code></strong> but will need to label the <strong><code>idField</code></strong> as the <strong><code>'displayId'</code></strong>. Both the <strong><code>entityId</code></strong> and <strong><code>displayId</code></strong> are returned after running a <a href="https://m2m.cr.usgs.gov/api/docs/reference/#scene-search">*<strong>scene-search</strong>*</a>.</p>
 <p>Here's an example of what the <a href="https://m2m.cr.usgs.gov/api/docs/reference/#scene-list-add">*<strong>scene-list-add</strong>*</a> payload would look like when a user wants to add scenes to a list using their entityId or displayId values:</p>
@@ -8765,7 +8760,7 @@ Also these examples use the results from the <a href="https://m2m.cr.usgs.gov/ap
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [27]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">idField</span> <span class="o">=</span> <span class="s1">'entityId'</span>
@@ -8788,7 +8783,7 @@ Also these examples use the results from the <a href="https://m2m.cr.usgs.gov/ap
 </div>
 <div class="jp-OutputArea jp-Cell-outputArea">
 <div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[27]:</div>
+<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[ ]:</div>
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
 <pre>['LC80680172020070LGN00', 'LC80680182020070LGN00']</pre>
 </div>
@@ -8806,12 +8801,12 @@ Also these examples use the results from the <a href="https://m2m.cr.usgs.gov/ap
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=adb81cb1-6c50-4e98-8685-c8b35d44793c">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=adb81cb1-6c50-4e98-8685-c8b35d44793c">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [28]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">listId</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"temp_</span><span class="si">{</span><span class="n">datasetName</span><span class="si">}</span><span class="s2">_list"</span> <span class="c1"># customized list id</span>
@@ -8823,21 +8818,6 @@ Also these examples use the results from the <a href="https://m2m.cr.usgs.gov/ap
 <span class="p">}</span>
 <span class="n">scn_list_add_payload</span>
 </pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[28]:</div>
-<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>{'listId': 'temp_landsat_ot_c2_l2_list',
- 'idField': 'entityId',
- 'entityIds': ['LC80680172020070LGN00', 'LC80680182020070LGN00'],
- 'datasetName': 'landsat_ot_c2_l2'}</pre>
 </div>
 </div>
 </div>
@@ -8855,29 +8835,17 @@ Also these examples use the results from the <a href="https://m2m.cr.usgs.gov/ap
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=cba50dcd-c982-4f2f-bf3a-e986a4f72230">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=cba50dcd-c982-4f2f-bf3a-e986a4f72230">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [29]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">count</span> <span class="o">=</span> <span class="n">sendRequest</span><span class="p">(</span><span class="n">serviceUrl</span> <span class="o">+</span> <span class="s2">"scene-list-add"</span><span class="p">,</span> <span class="n">scn_list_add_payload</span><span class="p">,</span> <span class="n">apiKey</span><span class="p">)</span> 
 <span class="n">count</span>
 </pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[29]:</div>
-<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>2</pre>
 </div>
 </div>
 </div>
@@ -8895,29 +8863,16 @@ Also these examples use the results from the <a href="https://m2m.cr.usgs.gov/ap
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=d5e29b53-019d-4c28-bc06-aa37971c0828">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=d5e29b53-019d-4c28-bc06-aa37971c0828">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [30]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">sendRequest</span><span class="p">(</span><span class="n">serviceUrl</span> <span class="o">+</span> <span class="s2">"scene-list-get"</span><span class="p">,</span> <span class="p">{</span><span class="s1">'listId'</span> <span class="p">:</span> <span class="n">scn_list_add_payload</span><span class="p">[</span><span class="s1">'listId'</span><span class="p">]},</span> <span class="n">apiKey</span><span class="p">)</span> 
 </pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[30]:</div>
-<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>[{'entityId': 'LC80680172020070LGN00', 'datasetName': 'landsat_ot_c2_l2'},
- {'entityId': 'LC80680182020070LGN00', 'datasetName': 'landsat_ot_c2_l2'}]</pre>
 </div>
 </div>
 </div>
@@ -8929,17 +8884,16 @@ Also these examples use the results from the <a href="https://m2m.cr.usgs.gov/ap
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <h2 id="5.-Get-download-options"><strong>5. Get <a href="https://m2m.cr.usgs.gov/api/docs/reference/#download-options"><em>download-options</em></a></strong><a id="downloadoptions"></a><a class="anchor-link" href="#5.-Get-download-options">¶</a></h2><p>The <a href="https://m2m.cr.usgs.gov/api/docs/reference/#download-options">*<strong>download-options</strong>*</a> request is used to discover downloadable products for each dataset. A *<strong>'datasetName'</strong>* parameter is required. The *<strong>listId</strong>* created above is used in the request.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=637af14a-5cfc-445c-98b7-74d70ecdb57b">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=637af14a-5cfc-445c-98b7-74d70ecdb57b">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [31]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">download_opt_payload</span> <span class="o">=</span> <span class="p">{</span>
@@ -8956,205 +8910,17 @@ Also these examples use the results from the <a href="https://m2m.cr.usgs.gov/ap
 </div>
 </div>
 </div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[31]:</div>
-<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>{'listId': 'temp_landsat_ot_c2_l2_list', 'datasetName': 'landsat_ot_c2_l2'}</pre>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=261b56ca-81fb-408a-a3bd-7bc9c49ed2a3">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=261b56ca-81fb-408a-a3bd-7bc9c49ed2a3">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [32]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">products</span> <span class="o">=</span> <span class="n">sendRequest</span><span class="p">(</span><span class="n">serviceUrl</span> <span class="o">+</span> <span class="s2">"download-options"</span><span class="p">,</span> <span class="n">download_opt_payload</span><span class="p">,</span> <span class="n">apiKey</span><span class="p">)</span>
 <span class="n">pd</span><span class="o">.</span><span class="n">json_normalize</span><span class="p">(</span><span class="n">products</span><span class="p">)</span>
 </pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[32]:</div>
-<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
-<div>
-<style scoped="">
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-<thead>
-<tr style="text-align: right;">
-<th></th>
-<th>id</th>
-<th>downloadName</th>
-<th>displayId</th>
-<th>entityId</th>
-<th>datasetId</th>
-<th>available</th>
-<th>filesize</th>
-<th>productName</th>
-<th>productCode</th>
-<th>bulkAvailable</th>
-<th>downloadSystem</th>
-<th>secondaryDownloads</th>
-<th>fileGroups</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<th>0</th>
-<td>5e83d14fec7cae84</td>
-<td>None</td>
-<td>LC08_L2SP_068017_20200310_20200822_02_T1</td>
-<td>LC80680172020070LGN00</td>
-<td>5e83d14f2fc39685</td>
-<td>True</td>
-<td>977600762</td>
-<td>Landsat Collection 2 Level-2 Product Bundle</td>
-<td>D694</td>
-<td>True</td>
-<td>ls_zip</td>
-<td>[{'id': '5f85f041a2ea6695', 'downloadName': No...</td>
-<td>None</td>
-</tr>
-<tr>
-<th>1</th>
-<td>632210d4770592cf</td>
-<td>None</td>
-<td>LC08_L2SP_068017_20200310_20200822_02_T1</td>
-<td>LC80680172020070LGN00</td>
-<td>5e83d14f2fc39685</td>
-<td>False</td>
-<td>977600762</td>
-<td>Landsat Collection 2 Level-2 Product Bundle</td>
-<td>D806</td>
-<td>False</td>
-<td>dds</td>
-<td>[{'id': '5f85f041a2ea6695', 'downloadName': No...</td>
-<td>None</td>
-</tr>
-<tr>
-<th>2</th>
-<td>6448198cc7b442a4</td>
-<td>C2L2 Tile Product Files</td>
-<td>LC08_L2SP_068017_20200310_20200822_02_T1</td>
-<td>LC80680172020070LGN00</td>
-<td>5e83d14f2fc39685</td>
-<td>True</td>
-<td>0</td>
-<td>Landsat Collection 2 Level-2 Band File</td>
-<td>D693</td>
-<td>True</td>
-<td>folder</td>
-<td>[{'id': '5f85f041a2ea6695', 'downloadName': No...</td>
-<td>None</td>
-</tr>
-<tr>
-<th>3</th>
-<td>6448198c62023764</td>
-<td>C2L2 Tile Product Files</td>
-<td>LC08_L2SP_068017_20200310_20200822_02_T1</td>
-<td>LC80680172020070LGN00</td>
-<td>5e83d14f2fc39685</td>
-<td>True</td>
-<td>0</td>
-<td>Landsat Collection 2 Level-2 Band File</td>
-<td>D691</td>
-<td>True</td>
-<td>folder</td>
-<td>[{'id': '5f85f041a2ea6695', 'downloadName': No...</td>
-<td>None</td>
-</tr>
-<tr>
-<th>4</th>
-<td>5e83d14fec7cae84</td>
-<td>None</td>
-<td>LC08_L2SP_068018_20200310_20200822_02_T1</td>
-<td>LC80680182020070LGN00</td>
-<td>5e83d14f2fc39685</td>
-<td>True</td>
-<td>896080792</td>
-<td>Landsat Collection 2 Level-2 Product Bundle</td>
-<td>D694</td>
-<td>True</td>
-<td>ls_zip</td>
-<td>[{'id': '5f85f041a2ea6695', 'downloadName': No...</td>
-<td>None</td>
-</tr>
-<tr>
-<th>5</th>
-<td>632210d4770592cf</td>
-<td>None</td>
-<td>LC08_L2SP_068018_20200310_20200822_02_T1</td>
-<td>LC80680182020070LGN00</td>
-<td>5e83d14f2fc39685</td>
-<td>False</td>
-<td>896080792</td>
-<td>Landsat Collection 2 Level-2 Product Bundle</td>
-<td>D806</td>
-<td>False</td>
-<td>dds</td>
-<td>[{'id': '5f85f041a2ea6695', 'downloadName': No...</td>
-<td>None</td>
-</tr>
-<tr>
-<th>6</th>
-<td>6448198cc7b442a4</td>
-<td>C2L2 Tile Product Files</td>
-<td>LC08_L2SP_068018_20200310_20200822_02_T1</td>
-<td>LC80680182020070LGN00</td>
-<td>5e83d14f2fc39685</td>
-<td>True</td>
-<td>0</td>
-<td>Landsat Collection 2 Level-2 Band File</td>
-<td>D693</td>
-<td>True</td>
-<td>folder</td>
-<td>[{'id': '5f85f041a2ea6695', 'downloadName': No...</td>
-<td>None</td>
-</tr>
-<tr>
-<th>7</th>
-<td>6448198c62023764</td>
-<td>C2L2 Tile Product Files</td>
-<td>LC08_L2SP_068018_20200310_20200822_02_T1</td>
-<td>LC80680182020070LGN00</td>
-<td>5e83d14f2fc39685</td>
-<td>True</td>
-<td>0</td>
-<td>Landsat Collection 2 Level-2 Band File</td>
-<td>D691</td>
-<td>True</td>
-<td>folder</td>
-<td>[{'id': '5f85f041a2ea6695', 'downloadName': No...</td>
-<td>None</td>
-</tr>
-</tbody>
-</table>
-</div>
 </div>
 </div>
 </div>
@@ -9166,89 +8932,22 @@ Also these examples use the results from the <a href="https://m2m.cr.usgs.gov/ap
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <h2 id="6.-Set-dataset-file-groups-Ids-"><strong>6. Set <a href="https://m2m.cr.usgs.gov/api/docs/reference/#dataset-file-groups"><em>dataset-file-groups</em></a> Ids</strong> <a id="setdatafilegroups"></a><a class="anchor-link" href="#6.-Set-dataset-file-groups-Ids-">¶</a></h2><p>This is necessary within this script for *<strong>band_group</strong>* downloads.
 You can use the <a href="https://m2m.cr.usgs.gov/api/docs/reference/#dataset-file-groups">*<strong>dataset-file-groups</strong>*</a> request to list all configured file groups for a dataset collection given the *<strong>datasetName</strong>* is provided.</p>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=57f7d594-5576-46ac-ab28-3a571ccfb562">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=57f7d594-5576-46ac-ab28-3a571ccfb562">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [33]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">filegroups</span> <span class="o">=</span> <span class="n">sendRequest</span><span class="p">(</span><span class="n">serviceUrl</span> <span class="o">+</span> <span class="s2">"dataset-file-groups"</span><span class="p">,</span> <span class="p">{</span><span class="s1">'datasetName'</span> <span class="p">:</span> <span class="n">datasetName</span><span class="p">},</span> <span class="n">apiKey</span><span class="p">)</span>  
 <span class="n">pd</span><span class="o">.</span><span class="n">json_normalize</span><span class="p">(</span><span class="n">filegroups</span><span class="p">[</span><span class="s1">'secondary'</span><span class="p">])</span>
 </pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[33]:</div>
-<div class="jp-RenderedHTMLCommon jp-RenderedHTML jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/html" tabindex="0">
-<div>
-<style scoped="">
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-<table border="1" class="dataframe">
-<thead>
-<tr style="text-align: right;">
-<th></th>
-<th>5f85f041c828327a.ls_c2l2_sr_band.id</th>
-<th>5f85f041c828327a.ls_c2l2_sr_band.color</th>
-<th>5f85f041c828327a.ls_c2l2_sr_band.description</th>
-<th>5f85f041c828327a.ls_c2l2_sr_band.displayOrder</th>
-<th>5f85f041c828327a.ls_c2l2_sr_band.icon</th>
-<th>5f85f041c828327a.ls_c2l2_sr_band.label</th>
-<th>5f85f041c828327a.ls_c2l2_sr_band.files</th>
-<th>5f85f041c828327a.ls_c2l2_st_band.id</th>
-<th>5f85f041c828327a.ls_c2l2_st_band.color</th>
-<th>5f85f041c828327a.ls_c2l2_st_band.description</th>
-<th>5f85f041c828327a.ls_c2l2_st_band.displayOrder</th>
-<th>5f85f041c828327a.ls_c2l2_st_band.icon</th>
-<th>5f85f041c828327a.ls_c2l2_st_band.label</th>
-<th>5f85f041c828327a.ls_c2l2_st_band.files</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<th>0</th>
-<td>ls_c2l2_sr_band</td>
-<td>None</td>
-<td>Landsat Collection-2 Level-2 Surface Reflectan...</td>
-<td>1</td>
-<td>None</td>
-<td>Level-2 Surface Reflectance Bands</td>
-<td>[{'name': 'ANG.txt', 'productIds': {'6453e8a2f...</td>
-<td>ls_c2l2_st_band</td>
-<td>None</td>
-<td>Landsat Collection-2 Level-2 Surface Temperatu...</td>
-<td>1</td>
-<td>None</td>
-<td>Level-2 Surface Temperature Bands</td>
-<td>[{'name': 'ANG.txt', 'productIds': {'6453e8a2f...</td>
-</tr>
-</tbody>
-</table>
-</div>
 </div>
 </div>
 </div>
@@ -9273,7 +8972,7 @@ You can use the <a href="https://m2m.cr.usgs.gov/api/docs/reference/#dataset-fil
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [34]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">fileGroupIds</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"ls_c2l2_sr_band"</span><span class="p">}</span>
@@ -9289,7 +8988,6 @@ You can use the <a href="https://m2m.cr.usgs.gov/api/docs/reference/#dataset-fil
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <h2 id="7.-Select-Products-for-Downloading"><strong>7. Select Products for Downloading</strong><a id="selectproducts"></a><a class="anchor-link" href="#7.-Select-Products-for-Downloading">¶</a></h2><p>The script below uses the <a href="https://m2m.cr.usgs.gov/api/docs/reference/#dataset"><strong>dataset</strong></a> which is used to retrieve the dataset by id or name.</p>
 <blockquote>
 <p>Note that *<strong>'products'</strong>* are results from the endpoint <a href="https://m2m.cr.usgs.gov/api/docs/reference/#download-options">*<strong>download-options</strong>*</a>.</p>
@@ -9297,12 +8995,12 @@ You can use the <a href="https://m2m.cr.usgs.gov/api/docs/reference/#dataset-fil
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=4cdb659e-bfac-4045-bc73-8f38bf1d5c19">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=4cdb659e-bfac-4045-bc73-8f38bf1d5c19">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [35]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Select products</span>
@@ -9388,20 +9086,6 @@ You can use the <a href="https://m2m.cr.usgs.gov/api/docs/reference/#dataset-fil
 </div>
 </div>
 </div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Selecting products...
-    Selecting band files...
-</pre>
-</div>
-</div>
-</div>
-</div>
 </div>
 <div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=3ce09dc1-b2fe-4137-b845-0e93a25943b1">
 <div class="jp-Cell-inputWrapper" tabindex="0">
@@ -9409,17 +9093,16 @@ You can use the <a href="https://m2m.cr.usgs.gov/api/docs/reference/#dataset-fil
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <h2 id="8.-Send-download-request"><strong>8. Send <a href="https://m2m.cr.usgs.gov/api/docs/reference/#download-request"><em>download-request</em></a></strong><a id="downloadrequest"></a><a class="anchor-link" href="#8.-Send-download-request">¶</a></h2>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=da74a4d5-3c56-4081-b0b7-fa23a128a560">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=da74a4d5-3c56-4081-b0b7-fa23a128a560">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [36]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="k">if</span> <span class="n">fileType</span> <span class="o">!=</span> <span class="s1">'band_group'</span><span class="p">:</span>
@@ -9455,20 +9138,6 @@ You can use the <a href="https://m2m.cr.usgs.gov/api/docs/reference/#dataset-fil
 </div>
 </div>
 </div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Sending download request ...
-Done sending download request
-</pre>
-</div>
-</div>
-</div>
-</div>
 </div>
 <div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=563bf52a-feb7-4da4-9f28-303a03453877">
 <div class="jp-Cell-inputWrapper" tabindex="0">
@@ -9480,12 +9149,12 @@ Done sending download request
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=340b75f0-394e-4824-8280-873df80ccb87">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=340b75f0-394e-4824-8280-873df80ccb87">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [37]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="c1"># Attempt the download URLs</span>
@@ -9537,39 +9206,6 @@ Done sending download request
 </div>
 </div>
 </div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>Get download url: https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/068/017/LC08_L2SP_068017_20200310_20200822_02_T1/LC08_L2SP_068017_20200310_20200822_02_T1_QA_PIXEL.TIF?requestSignature=eyJjb250YWN0SWQiOjI2ODMyMjM1LCJkb3dubG9hZElkIjo1NDUxNDg4NDcsImRhdGVHZW5lcmF0ZWQiOiIyMDI0LTAxLTI0VDE3OjE1OjMwLTA2OjAwIiwiaWQiOiJMQzA4X0wyU1BfMDY4MDE3XzIwMjAwMzEwXzIwMjAwODIyXzAyX1QxX1FBX1BJWEVMLlRJRiIsInNpZ25hdHVyZSI6IiQ1JCRFcGJiNmcyM2htODZiY0FDTUVmcDZQYXAuaVhYQmdNUWtiaEZmdDJCbGo2In0=
-
-Get download url: https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/068/017/LC08_L2SP_068017_20200310_20200822_02_T1/LC08_L2SP_068017_20200310_20200822_02_T1_SR_B2.TIF?requestSignature=eyJjb250YWN0SWQiOjI2ODMyMjM1LCJkb3dubG9hZElkIjo1NDUxNDg4NDgsImRhdGVHZW5lcmF0ZWQiOiIyMDI0LTAxLTI0VDE3OjE1OjMwLTA2OjAwIiwiaWQiOiJMQzA4X0wyU1BfMDY4MDE3XzIwMjAwMzEwXzIwMjAwODIyXzAyX1QxX1NSX0IyLlRJRiIsInNpZ25hdHVyZSI6IiQ1JCRwWkpzdFFzYXE3MjdXNFQyczl3ZVlYeDdoSkhmd3BmdUY2blFIcUdkV3ZDIn0=
-
-Get download url: https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/068/017/LC08_L2SP_068017_20200310_20200822_02_T1/LC08_L2SP_068017_20200310_20200822_02_T1_ST_B10.TIF?requestSignature=eyJjb250YWN0SWQiOjI2ODMyMjM1LCJkb3dubG9hZElkIjo1NDUxNDg4NDksImRhdGVHZW5lcmF0ZWQiOiIyMDI0LTAxLTI0VDE3OjE1OjMwLTA2OjAwIiwiaWQiOiJMQzA4X0wyU1BfMDY4MDE3XzIwMjAwMzEwXzIwMjAwODIyXzAyX1QxX1NUX0IxMC5USUYiLCJzaWduYXR1cmUiOiIkNSQkOE1SZWd5ODl6U0xxQ0FjdVZ1aEZCLksuN3JuQlpLaVNFSmRzMG5iYXMwQSJ9
-
-Get download url: https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/068/018/LC08_L2SP_068018_20200310_20200822_02_T1/LC08_L2SP_068018_20200310_20200822_02_T1_QA_PIXEL.TIF?requestSignature=eyJjb250YWN0SWQiOjI2ODMyMjM1LCJkb3dubG9hZElkIjo1NDUxNDg4NTAsImRhdGVHZW5lcmF0ZWQiOiIyMDI0LTAxLTI0VDE3OjE1OjMwLTA2OjAwIiwiaWQiOiJMQzA4X0wyU1BfMDY4MDE4XzIwMjAwMzEwXzIwMjAwODIyXzAyX1QxX1FBX1BJWEVMLlRJRiIsInNpZ25hdHVyZSI6IiQ1JCRYc0MwYlJ1djByR3p6OXZtN2VEanpLRkVMS256N2hRbTUySHNSQ1p6MzY0In0=
-
-Get download url: https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/068/018/LC08_L2SP_068018_20200310_20200822_02_T1/LC08_L2SP_068018_20200310_20200822_02_T1_SR_B2.TIF?requestSignature=eyJjb250YWN0SWQiOjI2ODMyMjM1LCJkb3dubG9hZElkIjo1NDUxNDg4NTEsImRhdGVHZW5lcmF0ZWQiOiIyMDI0LTAxLTI0VDE3OjE1OjMwLTA2OjAwIiwiaWQiOiJMQzA4X0wyU1BfMDY4MDE4XzIwMjAwMzEwXzIwMjAwODIyXzAyX1QxX1NSX0IyLlRJRiIsInNpZ25hdHVyZSI6IiQ1JCQ1SkguNG1CRktRbmU4S2t1ZmJwbzRyS3dhMlF3Q3pKUHJlaWdFNmlzMU8uIn0=
-
-Get download url: https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/068/018/LC08_L2SP_068018_20200310_20200822_02_T1/LC08_L2SP_068018_20200310_20200822_02_T1_ST_B10.TIF?requestSignature=eyJjb250YWN0SWQiOjI2ODMyMjM1LCJkb3dubG9hZElkIjo1NDUxNDg4NTIsImRhdGVHZW5lcmF0ZWQiOiIyMDI0LTAxLTI0VDE3OjE1OjMwLTA2OjAwIiwiaWQiOiJMQzA4X0wyU1BfMDY4MDE4XzIwMjAwMzEwXzIwMjAwODIyXzAyX1QxX1NUX0IxMC5USUYiLCJzaWduYXR1cmUiOiIkNSQkU0ZmSjNqMzRDTTlFdkRUb2xPcUVtSW9CZFgweTVFRjNoVWE5Z1MxTzlLQyJ9
-
-
-Downloading files... Please do not close the program
-
-    Downloading: LC08_L2SP_068017_20200310_20200822_02_T1_SR_B2.TIF...
-    Downloading: LC08_L2SP_068018_20200310_20200822_02_T1_SR_B2.TIF...
-    Downloading: LC08_L2SP_068017_20200310_20200822_02_T1_ST_B10.TIF...
-    Downloading: LC08_L2SP_068017_20200310_20200822_02_T1_QA_PIXEL.TIF...
-    Downloading: LC08_L2SP_068018_20200310_20200822_02_T1_QA_PIXEL.TIF...
-    Downloading: LC08_L2SP_068018_20200310_20200822_02_T1_ST_B10.TIF...
-</pre>
-</div>
-</div>
-</div>
-</div>
 </div>
 <div class="jp-Cell jp-MarkdownCell jp-Notebook-cell" id="cell-id=b171a315-b4b4-46a1-9a67-97ee425b5c57">
 <div class="jp-Cell-inputWrapper" tabindex="0">
@@ -9577,7 +9213,6 @@ Downloading files... Please do not close the program
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <h2 id="9.-Remove-the-scene-list-with-scene-list-remove"><strong>9. Remove the scene list with <a href="https://m2m.cr.usgs.gov/api/docs/reference/#scene-list-remove"><em>scene-list-remove</em></a></strong><a id="scenelistremove"></a><a class="anchor-link" href="#9.-Remove-the-scene-list-with-scene-list-remove">¶</a></h2><p>Use <a href="https://m2m.cr.usgs.gov/api/docs/reference/#scene-list-remove">*<strong>scene-list-remove</strong>*</a> to delete items from a specified list, a *<strong><code>listId</code></strong>* is required. Since no *<strong><code>datasetName</code></strong>* is provided, the entire list is removed. This is important as scene-lists are preserved between sessions.</p>
 </div>
 </div>
@@ -9587,7 +9222,7 @@ Downloading files... Please do not close the program
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [38]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">remove_scnlst_payload</span> <span class="o">=</span> <span class="p">{</span>
@@ -9613,7 +9248,6 @@ Downloading files... Please do not close the program
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <h2 id="10.-Logout"><strong>10. <a href="https://m2m.cr.usgs.gov/api/docs/reference/#logout"><em>Logout</em></a></strong><a id="logout"></a><a class="anchor-link" href="#10.-Logout">¶</a></h2><p>Logout so the API Key cannot be used anymore.</p>
 </div>
 </div>
@@ -9631,12 +9265,12 @@ Downloading files... Please do not close the program
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=853af46a-a2f0-4507-9ea5-b94d737ee0e1">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=853af46a-a2f0-4507-9ea5-b94d737ee0e1">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [39]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">endpoint</span> <span class="o">=</span> <span class="s2">"logout"</span>  
@@ -9645,21 +9279,6 @@ Downloading files... Please do not close the program
 <span class="k">else</span><span class="p">:</span>
     <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Logout Failed</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
 </pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
-<div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain" tabindex="0">
-<pre>
-Logged Out
-
-</pre>
 </div>
 </div>
 </div>
@@ -9675,34 +9294,16 @@ Logged Out
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell" id="cell-id=70572e86-e258-4e15-9114-fda30a3e35a6">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=70572e86-e258-4e15-9114-fda30a3e35a6">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [40]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">data_dir</span><span class="p">)</span>
 </pre></div>
-</div>
-</div>
-</div>
-</div>
-<div class="jp-Cell-outputWrapper">
-<div class="jp-Collapser jp-OutputCollapser jp-Cell-outputCollapser">
-</div>
-<div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child jp-OutputArea-executeResult">
-<div class="jp-OutputPrompt jp-OutputArea-prompt">Out[40]:</div>
-<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain" tabindex="0">
-<pre>['LC08_L2SP_068017_20200310_20200822_02_T1_ST_B10.TIF',
- 'LC08_L2SP_068018_20200310_20200822_02_T1_SR_B2.TIF',
- 'LC08_L2SP_068017_20200310_20200822_02_T1_QA_PIXEL.TIF',
- '.ipynb_checkpoints',
- 'LC08_L2SP_068018_20200310_20200822_02_T1_ST_B10.TIF',
- 'LC08_L2SP_068018_20200310_20200822_02_T1_QA_PIXEL.TIF',
- 'LC08_L2SP_068017_20200310_20200822_02_T1_SR_B2.TIF']</pre>
 </div>
 </div>
 </div>
@@ -9714,7 +9315,6 @@ Logged Out
 </div>
 <div class="jp-InputArea jp-Cell-inputArea"><div class="jp-InputPrompt jp-InputArea-prompt">
 </div><div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput" data-mime-type="text/markdown">
-<hr/>
 <div class="alert alert-block alert-info">
 <h1> Contact Information </h1>
 <h3> Material written by Tonian Robinson<sup>1</sup> </h3>
@@ -9722,7 +9322,7 @@ Logged Out
 <b>Contact:</b> custserv@usgs.gov <br/>
 <b>Voice:</b> +1-605-594-6151 <br/>
 <b>Organization:</b> USGS EROS User Services <br/>
-<b>Date last modified:</b> 24-Jan-2024 <br/>
+<b>Date last modified:</b> 01-Jul-2024 <br/>
 </ul>
 <p><sup>1</sup>Earth Space Technology Services LLC., contractor to the U.S. Geological Survey, Earth Resources Observation and Science (EROS) Center, Sioux Falls, South Dakota, 57198-001, USA. Work performed under USGS contract G0121D0001.</p>
 </div>
