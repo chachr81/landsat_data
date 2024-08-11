@@ -64,6 +64,13 @@ def download_file(url, filename, entity_id):
     except IOError as io_err:
         print(f"Error al escribir el archivo {filename}: {io_err}")
 
+
+# Función para ejecutar la descarga con múltiples hilos
+def run_download(threads, url, filename, entity_id):
+    thread = threading.Thread(target=download_file, args=(url, filename, entity_id))
+    threads.append(thread)
+    thread.start()
+
 # Función principal
 def main():
     cred_file_path = r'C:\Workspace\descarga_landsat\credenciales.txt'
@@ -112,7 +119,7 @@ def main():
 
     temporal_filter = {'start': '2024-01-01', 'end': '2024-08-06'}
     cloud_cover_filter = {'min': 0, 'max': 10}
-    file_type = 'band'  # Cambia este valor a 'band', 'bundle', o 'band_group' según sea necesario
+    file_type = 'band'
     band_names = {'SR_B3', 'SR_B5', 'ANG'}
 
     search_payload = {
@@ -162,44 +169,12 @@ def main():
                         for sd in product["secondaryDownloads"]:
                             if any(band in sd['displayId'] for band in band_names):
                                 downloads.append({"entityId": sd["entityId"], "productId": sd["id"]})
-            elif file_type == 'band_group':
-                scene_file_groups = []
-                dataset_id = None
-                for product in products:
-                    if product.get("secondaryDownloads"):
-                        for sd in product["secondaryDownloads"]:
-                            if sd.get("bulkAvailable") and sd.get("fileGroups"):
-                                if dataset_id is None:
-                                    dataset_id = sd['datasetId']
-                                for fg in sd["fileGroups"]:
-                                    if fg not in scene_file_groups:
-                                        scene_file_groups.append(fg)
 
-                secondary_list_id = f"temp_{dataset_name}_secondary_list"
-                sec_scn_add_payload = {
-                    "listId": secondary_list_id,
-                    "entityIds": entity_ids,
-                    "datasetName": dataset_id
-                }
-                send_request(service_url + "scene-list-add", sec_scn_add_payload, headers)
-
-                download_req_payload = {
-                    "dataGroups": [
-                        {
-                            "fileGroups": scene_file_groups,
-                            "datasetName": dataset_id,
-                            "listId": secondary_list_id
-                        }
-                    ],
-                    "label": label
-                }
-
-        if downloads or file_type == 'band_group':
-            if file_type != 'band_group':
-                download_req_payload = {
-                    "downloads": downloads,
-                    "label": label
-                }
+        if downloads:
+            download_req_payload = {
+                "downloads": downloads,
+                "label": label
+            }
 
             print(f"Solicitando descargas para {len(downloads)} archivos...")
             download_results = send_request(service_url + "download-request", download_req_payload, headers)
@@ -210,13 +185,14 @@ def main():
                 download_dir = r'C:\Workspace\descarga_landsat\data'
                 os.makedirs(download_dir, exist_ok=True)
 
-                with ThreadPoolExecutor(max_workers=5) as executor:
-                    for download in download_results['availableDownloads']:
-                        entity_id = download.get('entityId', f"download_{download['downloadId']}")
-                        filename = os.path.join(download_dir, os.path.basename(download['url']))
-                        executor.submit(download_file, download['url'], filename, entity_id)
-            else:
-                print("No se encontraron archivos para descargar.")
+                if download_results and 'availableDownloads' in download_results:
+                    with ThreadPoolExecutor(max_workers=5) as executor:
+                        for download in download_results['availableDownloads']:
+                            entity_id = download.get('entityId', f"download_{download['downloadId']}")
+                            filename = os.path.join(download_dir, os.path.basename(download['url']))
+                            executor.submit(download_file, download['url'], filename, entity_id)
+                else:
+                    print("No se encontraron archivos para descargar.")
         else:
             print("No se seleccionaron productos para descargar. Revisa las bandas o el tipo de archivo.")
     else:
