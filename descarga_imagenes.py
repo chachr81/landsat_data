@@ -1,11 +1,12 @@
 import json
 import requests
+import sys
 from urllib.parse import urlparse, unquote
 import time
 import os
 import pandas as pd
 import geopandas as gpd
-from geojson import Polygon, Feature, FeatureCollection, dump
+from geojson import dump
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 
@@ -26,25 +27,36 @@ def read_credentials(filepath):
     return credentials
 
 # Función para enviar solicitudes al API
-def send_request(url, payload, headers=None):
-    response = requests.post(url, json=payload, headers=headers)
-    if response.status_code == 200:
-        return response.json()['data']
-    else:
-        print(f"Error {response.status_code}: {response.text}")
-        return None
+def send_request(url, data, headers=None, exit_if_no_response=True):
+    try:
+        response = requests.post(url, json=data, headers=headers)
+        response.raise_for_status()
+
+        output = response.json()
+        if output.get('errorCode'):
+            print(f"{output['errorCode']} - {output['errorMessage']}")
+            if exit_if_no_response:
+                sys.exit()
+            return False
+
+        return output.get('data')
+
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        if exit_if_no_response:
+            sys.exit()
+        return False
 
 # Función para descargar archivos
 def download_file(url, filename, entity_id):
     try:
         print(f"Iniciando descarga desde {url}")
         response = requests.get(url, stream=True)
-        response.raise_for_status()  # Verifica si hubo un error en la solicitud
+        response.raise_for_status()
 
-        # Limpiar el nombre del archivo
         parsed_url = urlparse(url)
         cleaned_filename = os.path.basename(parsed_url.path)
-        cleaned_filename = unquote(cleaned_filename)  # Decodificar caracteres especiales
+        cleaned_filename = unquote(cleaned_filename)
         filepath = os.path.join(os.path.dirname(filename), cleaned_filename)
 
         with open(filepath, 'wb') as f:
@@ -53,7 +65,6 @@ def download_file(url, filename, entity_id):
 
         print(f"Archivo descargado: {filepath} para EntityId: {entity_id}")
 
-        # Verificar tamaño del archivo para confirmar la descarga
         if os.path.getsize(filepath) > 0:
             print(f"Archivo guardado correctamente: {filepath}")
         else:
@@ -64,12 +75,34 @@ def download_file(url, filename, entity_id):
     except IOError as io_err:
         print(f"Error al escribir el archivo {filename}: {io_err}")
 
+# Función para convertir shapefile a GeoJSON y obtener spatial_filter
+def shapefile_to_geojson(shapefile_dir, output_dir):
+    shapefiles = [f for f in os.listdir(shapefile_dir) if f.endswith('.shp')]
 
-# Función para ejecutar la descarga con múltiples hilos
-def run_download(threads, url, filename, entity_id):
-    thread = threading.Thread(target=download_file, args=(url, filename, entity_id))
-    threads.append(thread)
-    thread.start()
+    if not shapefiles:
+        raise FileNotFoundError("No shapefiles found in the directory.")
+
+    shapefile_path = os.path.join(shapefile_dir, shapefiles[0])
+
+    gdf = gpd.read_file(shapefile_path)
+    gdf = gdf.to_crs(epsg=4326)
+
+    geojson_dict = json.loads(gdf.to_json())
+
+    output_filename = os.path.splitext(shapefiles[0])[0] + '.geojson'
+    geojson_path = os.path.join(output_dir, output_filename)
+
+    with open(geojson_path, 'w') as f:
+        dump(geojson_dict, f)
+
+    print(f"GeoJSON creado: {geojson_path}")
+
+    spatial_filter = {
+        'filterType': 'geojson',
+        'geoJson': geojson_dict['features'][0]['geometry']
+    }
+
+    return spatial_filter
 
 # Función principal
 def main():
@@ -92,35 +125,18 @@ def main():
         print(response.json())
         raise Exception("Login failed")
 
-    # Crear un archivo GeoJSON
-    polygon = Polygon([[[-68.00847232151489, 9.993051075414456],  
-                        [-68.00741959094407, 10.334374973060754],  
-                        [-67.49442572538628, 10.332388252838966],  
-                        [-67.49602212224453, 9.991131292108372],   
-                        [-68.00847232151489, 9.993051075414456]]])  
-
-    features = [Feature(geometry=polygon, properties={"name": "Lago de Valencia Area", "country": "Venezuela"})]
-    feature_collection = FeatureCollection(features)
-
-    geojson_path = r'C:\Workspace\descarga_landsat\utils\Lago_de_Valencia_Venezuela_aoi.geojson'
-    with open(geojson_path, 'w') as f:
-        dump(feature_collection, f)
-
-    gdf = gpd.read_file(geojson_path)
-    geojson_dict = json.loads(gdf.to_json())
-
-    spatial_filter = {
-        'filterType': 'geojson',
-        'geoJson': geojson_dict['features'][0]['geometry']
-    }
+    # Convertir shapefile a GeoJSON y obtener spatial_filter
+    shapefile_dir = r'C:\Workspace\descarga_landsat\utils'
+    output_dir = r'C:\Workspace\descarga_landsat\utils'
+    spatial_filter = shapefile_to_geojson(shapefile_dir, output_dir)
 
     dataset_name = 'landsat_ot_c2_l2'
     label = time.strftime("%Y%m%d_%H%M%S")
 
     temporal_filter = {'start': '2024-01-01', 'end': '2024-08-06'}
     cloud_cover_filter = {'min': 0, 'max': 10}
-    file_type = 'band'
-    band_names = {'SR_B3', 'SR_B5', 'ANG'}
+    file_type = 'band'  # Cambiar entre 'band', 'bundle' y 'band_group' según sea necesario
+    band_names = {'SR_B3', 'SR_B5', 'ANG', 'MTL'}  # Solo relevante para 'band'
 
     search_payload = {
         'datasetName': dataset_name,
@@ -169,6 +185,11 @@ def main():
                         for sd in product["secondaryDownloads"]:
                             if any(band in sd['displayId'] for band in band_names):
                                 downloads.append({"entityId": sd["entityId"], "productId": sd["id"]})
+            elif file_type == 'band_group':
+                for product in products:
+                    if product.get("secondaryDownloads"):
+                        for sd in product["secondaryDownloads"]:
+                            downloads.append({"entityId": sd["entityId"], "productId": sd["id"]})
 
         if downloads:
             download_req_payload = {
@@ -185,14 +206,13 @@ def main():
                 download_dir = r'C:\Workspace\descarga_landsat\data'
                 os.makedirs(download_dir, exist_ok=True)
 
-                if download_results and 'availableDownloads' in download_results:
-                    with ThreadPoolExecutor(max_workers=5) as executor:
-                        for download in download_results['availableDownloads']:
-                            entity_id = download.get('entityId', f"download_{download['downloadId']}")
-                            filename = os.path.join(download_dir, os.path.basename(download['url']))
-                            executor.submit(download_file, download['url'], filename, entity_id)
-                else:
-                    print("No se encontraron archivos para descargar.")
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    for download in download_results['availableDownloads']:
+                        entity_id = download.get('entityId', f"download_{download['downloadId']}")
+                        filename = os.path.join(download_dir, os.path.basename(download['url']))
+                        executor.submit(download_file, download['url'], filename, entity_id)
+            else:
+                print("No se encontraron archivos para descargar.")
         else:
             print("No se seleccionaron productos para descargar. Revisa las bandas o el tipo de archivo.")
     else:
