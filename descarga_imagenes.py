@@ -48,31 +48,43 @@ def send_request(url, data, headers=None, exit_if_no_response=True):
         return False
 
 # Función para descargar archivos
-def download_file(url, filename, entity_id):
+def download_file(url, filename, entity_id, retries=10, delay_between_retries=10, delay_after_success=15):
     try:
         print(f"Iniciando descarga desde {url}")
-        response = requests.get(url, stream=True)
-        response.raise_for_status()
+        for attempt in range(retries):
+            try:
+                response = requests.get(url, stream=True, timeout=30)
+                response.raise_for_status()
 
-        parsed_url = urlparse(url)
-        cleaned_filename = os.path.basename(parsed_url.path)
-        cleaned_filename = unquote(cleaned_filename)
-        filepath = os.path.join(os.path.dirname(filename), cleaned_filename)
+                parsed_url = urlparse(url)
+                cleaned_filename = os.path.basename(parsed_url.path)
+                cleaned_filename = unquote(cleaned_filename)
+                filepath = os.path.join(os.path.dirname(filename), cleaned_filename)
 
-        with open(filepath, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
+                with open(filepath, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
 
-        print(f"Archivo descargado: {filepath} para EntityId: {entity_id}")
+                print(f"Archivo descargado: {filepath} para EntityId: {entity_id}")
 
-        if os.path.getsize(filepath) > 0:
-            print(f"Archivo guardado correctamente: {filepath}")
-        else:
-            print(f"Advertencia: El archivo {filepath} parece estar vacío.")
+                if os.path.getsize(filepath) > 0:
+                    print(f"Archivo guardado correctamente: {filepath}")
+                else:
+                    print(f"Advertencia: El archivo {filepath} parece estar vacío.")
+                
+                # Delay después de una descarga exitosa
+                time.sleep(delay_after_success)
+                break
+
+            except requests.exceptions.RequestException as e:
+                print(f"Error en el intento {attempt + 1} al descargar {filename} desde {url}: {e}")
+                if attempt < retries - 1:
+                    print(f"Reintentando en {delay_between_retries} segundos...")
+                    time.sleep(delay_between_retries)
+                else:
+                    print(f"Descarga fallida después de {retries} intentos.")
     
-    except requests.exceptions.RequestException as e:
-        print(f"Error al descargar {filename} desde {url}: {e}")
-    except IOError as io_err:
+    except OSError as io_err:
         print(f"Error al escribir el archivo {filename}: {io_err}")
 
 # Función para convertir shapefile a GeoJSON y obtener spatial_filter
@@ -104,6 +116,17 @@ def shapefile_to_geojson(shapefile_dir, output_dir):
 
     return spatial_filter
 
+# Función para eliminar listas de escenas
+def remove_scene_list(service_url, list_id, headers, secondary_list_id=None):
+    # Remove the primary scene list
+    remove_scnlst_payload = {"listId": list_id}
+    send_request(service_url + "scene-list-remove", remove_scnlst_payload, headers)
+
+    # Remove the secondary scene list if it exists
+    if secondary_list_id:
+        remove_scnlst2_payload = {"listId": secondary_list_id}
+        send_request(service_url + "scene-list-remove", remove_scnlst2_payload, headers)
+
 # Función principal
 def main():
     cred_file_path = r'C:\Workspace\descarga_landsat\credenciales.txt'
@@ -133,7 +156,7 @@ def main():
     dataset_name = 'landsat_ot_c2_l2'
     label = time.strftime("%Y%m%d_%H%M%S")
 
-    temporal_filter = {'start': '2024-01-01', 'end': '2024-08-06'}
+    temporal_filter = {'start': '2023-12-01', 'end': '2024-12-31'}
     cloud_cover_filter = {'min': 0, 'max': 10}
     file_type = 'band'  # Cambiar entre 'band', 'bundle' y 'band_group' según sea necesario
     band_names = {'SR_B3', 'SR_B5', 'ANG', 'MTL'}  # Solo relevante para 'band'
@@ -153,7 +176,8 @@ def main():
         print("Escenas encontradas:", entity_ids)
 
         df_scenes = pd.json_normalize(scenes['results'])
-        print(df_scenes)
+        df_scenes_filtered = df_scenes[['cloudCover', 'entityId', 'displayId', 'temporalCoverage.endDate', 'temporalCoverage.startDate']]
+        print(df_scenes_filtered)
 
         list_id = f"temp_{dataset_name}_list"
         scn_list_add_payload = {
@@ -213,6 +237,10 @@ def main():
                         executor.submit(download_file, download['url'], filename, entity_id)
             else:
                 print("No se encontraron archivos para descargar.")
+
+            # Eliminar listas de escenas después de la descarga
+            remove_scene_list(service_url, list_id, headers)
+
         else:
             print("No se seleccionaron productos para descargar. Revisa las bandas o el tipo de archivo.")
     else:
