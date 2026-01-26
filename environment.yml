@@ -1,0 +1,25 @@
+name: gis-notebook
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Core Python and Jupyter environment
+  - python=3.12
+  - pip
+  - jupyterlab
+  - ipywidgets
+
+  # Core Geospatial & Data Stack
+  - pyspark=4.0.1
+  - geopandas=1.1.1
+  - apache-sedona=1.8.0
+  - numpy=2.3.5
+  - scipy=1.16.3
+  - matplotlib=3.10.7
+  - scikit-learn=1.7.2
+  - sqlalchemy=2.0.44
+  - psycopg2=2.9.9 # conda-forge has psycopg2, not the binary one
+
+  # Pip dependencies for packages not in conda-forge or for specific versions
+  - pip:
+    - -r requirements.txt

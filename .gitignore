@@ -1,0 +1,26 @@
+# Ignore everything by default
+*
+
+# But keep the following files and directories:
+# --- Notebook and its documentation ---
+!/notebook/
+/notebook/*
+!/notebook/sedona_testing_landcover_metrics.ipynb
+!/README_NOTEBOOK.md
+!/docs/
+/docs/*
+!/docs/leyenda_description.pdf
+
+# --- Dependencies and Config ---
+!/requirements.txt
+!/environment.yml
+!/.env.example
+!/libs/
+!/libs/*
+
+# --- Data ---
+!/data/
+!/data/db_backup.dump
+
+# --- Gitignore itself ---
+!/.gitignore
