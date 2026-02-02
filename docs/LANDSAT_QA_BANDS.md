@@ -1,4 +1,4 @@
-# 🛰️ Bandas QA de Landsat Collection 2 - Guía de Enmascaramiento
+# Bandas QA de Landsat Collection 2 - Guía de Enmascaramiento
 
 ## Bandas QA Disponibles en Landsat Collection 2 Level-2
 
@@ -82,7 +82,7 @@ aerosol_level = (qa_aerosol >> 6) & 0b11
 
 ---
 
-## 🎯 Estrategia Recomendada para el Proyecto
+## Estrategia Recomendada para el Proyecto
 
 ### Bandas a Descargar
 ```python
@@ -128,7 +128,7 @@ def apply_cloud_mask(green_band, swir_band, qa_pixel, qa_radsat):
 
 ---
 
-## 📚 Referencias Oficiales
+## Referencias Oficiales
 
 - **USGS Landsat Collection 2 QA Tools:**  
   https://www.usgs.gov/landsat-missions/landsat-collection-2-quality-assessment-bands
@@ -141,12 +141,12 @@ def apply_cloud_mask(green_band, swir_band, qa_pixel, qa_radsat):
 
 ---
 
-## ✅ Decisión para el Proyecto Lago de Valencia
+## Decisión para el Proyecto Lago de Valencia
 
 **Bandas QA a usar:**
-1. ✅ **QA_PIXEL** → Enmascarar nubes, sombras, fill, dilated clouds
-2. ✅ **QA_RADSAT** → Verificar que B3 y B6 no estén saturados
-3. ⚠️ **QA_AEROSOL** → Opcional, evaluar después de resultados iniciales
+1. **QA_PIXEL** → Enmascarar nubes, sombras, fill, dilated clouds
+2. **QA_RADSAT** → Verificar que B3 y B6 no estén saturados
+3. **QA_AEROSOL** → Opcional, evaluar después de resultados iniciales
 
 **Bits a enmascarar en QA_PIXEL:**
 - Bit 0 (Fill)

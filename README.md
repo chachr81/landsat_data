@@ -1,8 +1,8 @@
 <div align="center">
 
-# Landsat Data Ingestion & Processing Engine
+# Motor de Ingesta y Procesamiento de Datos Landsat
 
-**A robust and scalable ETL pipeline for ingesting Landsat Collection 2 Level 2 data into a PostGIS database.**
+**Un pipeline ETL robusto y escalable para la ingesta de datos de la Colección 2 Nivel 2 de Landsat en una base de datos PostGIS.**
 
 <p>
   <img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python">
@@ -12,246 +12,23 @@
   <img src="https://img.shields.io/badge/Orchestration-Airflow%20Ready-lightblue.svg" alt="Airflow Ready">
 </p>
 
-[English Documentation](#english-documentation) | [Documentación en Español](#documentación-en-español)
+[Go to English Documentation](#english-documentation)
 
 </div>
 
 ---
 
-# English Documentation
-
-<details>
-<summary><strong>Table of Contents</strong></summary>
-
-1.  [Overview](#overview)
-2.  [Project Architecture](#project-architecture)
-3.  [Data Model](#data-model)
-4.  [ETL Workflow](#etl-workflow)
-5.  [Installation and Setup](#installation-and-setup)
-6.  [CLI Usage Guide](#cli-usage-guide)
-7.  [Additional Documentation](#additional-documentation)
-
-</details>
-
-## Overview
-
-This project implements an ETL (Extract, Transform, Load) pipeline designed to automate the download and storage of **Landsat Collection 2, Level 2** data from the USGS M2M API. The spectral band data is ingested as rasters into a **PostgreSQL** database with the **PostGIS** extension, using a partitioned database design for optimal performance on temporal queries.
-
-The system is modular, configurable, and ready to be orchestrated by tools like Apache Airflow, thanks to its CLI entry point.
-
-## Project Architecture
-
-The project structure is designed to separate concerns (SoC), ensuring clean, maintainable, and scalable code.
-
--   **`/main.py`**: **Main Entry Point**. A CLI that orchestrates the entire process. All operations, such as data ingestion, are initiated from here. It is the only script that needs to be run.
-
--   **`/etl/`**: **Core ETL Package**. Contains the reusable business logic of the pipeline, functioning as an internal library.
-    -   `bronze_ingestion.py`: The main orchestrator that manages the search, download, and insertion flow.
-    -   `m2m_client.py`: A dedicated client for interacting with the USGS M2M API, handling authentication, retries, and requests.
-    -   `mtl_parser.py`: A utility for parsing metadata files (`_MTL.txt`) from Landsat scenes.
-    -   `utils.py`: Utility functions for loading configuration, managing secrets, setting up logging, and other common operations.
-
--   **`/config/`**: **Project Configuration**.
-    -   `landsat_config.yaml`: The main configuration file and single source of truth for all non-sensitive parameters (bands to download, URLs, thresholds, etc.).
-    -   `roi_valencialake.geojson`: A GeoJSON file defining the Area of Interest (AOI) for scene searches.
-
--   **`/.env`**: **Secrets and Environment Variables**. This file, ignored by Git, **exclusively** contains sensitive information: database credentials and API tokens.
-
--   **`/sql/`**: **Database Infrastructure**.
-    -   `schemas/01_bronze_raster.sql`: DDL (Data Definition Language) script that defines and creates the entire schema (`bronze`), tables, year-based partitions, indexes, and views. It is the foundation for database reproducibility.
-
--   **`/scripts/`**: Contains utility scripts for diagnostics or testing (`test_bronze_etl.py`). They are not part of the main production workflow.
-
--   **`/data/`**, **`/logs/`**: Working directories (tracked by Git via `.gitkeep` but their content is ignored) where temporary downloaded files and execution logs are stored, respectively.
-
-## Data Model
-
-The database is designed for the efficient storage of large volumes of geospatial-temporal data.
-
--   **`bronze` Schema**: Houses the "raw" or minimally processed data, following the first stage of a Medallion architecture.
-
-### `landsat_scenes` Table
-Stores metadata for each unique scene.
-
-| Column             | Type                | Description                                                                 |
-|--------------------|---------------------|-----------------------------------------------------------------------------|
-| `scene_id`         | `SERIAL` (PK)       | Internal unique identifier for each scene.                                  |
-| `entity_id`        | `TEXT` (UNIQUE)     | USGS entity ID (e.g., `LC09_L2SP_004053_20240125_20240126_02_T1`).          |
-| `acquisition_date` | `DATE`              | Date the scene was captured.                                                |
-| `sensor`           | `TEXT`              | Sensor that captured the scene (e.g., 'OLI', 'ETM+').                        |
-| `cloud_cover`      | `REAL`              | Cloud cover percentage (0-100).                                             |
-| `footprint`        | `GEOMETRY(POLYGON)` | The geospatial footprint of the scene in geographic coordinates.            |
-
-### `landsat_bands` Table
-Stores raster data for each band, tiled for optimized access.
-
-| Column      | Type                | Description                                                                 |
-|-------------|---------------------|-----------------------------------------------------------------------------|
-| `rid`       | `SERIAL` (PK part)  | Unique identifier for each raster tile.                                     |
-| `scene_id`  | `INTEGER` (FK)      | Reference to the scene this band belongs to (`landsat_scenes`).             |
-| `band_name` | `TEXT`              | Name of the band (e.g., 'SR_B3', 'QA_PIXEL').                               |
-| `year`      | `INTEGER` (PK part) | Acquisition year. **Partitioning Key**.                                     |
-| `rast`      | `RASTER`            | The pixel data in PostGIS Raster format.                                    |
-| `filename`  | `TEXT`              | Original filename from which the raster was ingested.                       |
-
-### `download_log` Table
-Audit log for each Landsat file download performed.
-
-| Column                      | Type         | Description                                                                       |
-|-----------------------------|--------------|-----------------------------------------------------------------------------------|
-| `log_id`                    | `SERIAL` (PK) | Unique identifier for the download record.                                        |
-| `entity_id`                 | `TEXT`       | USGS entity ID of the downloaded scene.                                           |
-| `band_name`                 | `TEXT`       | Name of the band or product downloaded.                                           |
-| `download_url`              | `TEXT`       | URL of the file download.                                                         |
-| `download_status`           | `TEXT`       | Status of the download ('pending', 'success', 'failed', 'skipped').               |
-| `attempt_count`             | `INTEGER`    | Number of download attempts.                                                      |
-| `error_message`             | `TEXT`       | Error message if the download failed.                                             |
-| `file_size_mb`              | `REAL`       | Size of the downloaded file in MB.                                                |
-| `download_duration_seconds` | `REAL`       | Duration of the download in seconds.                                              |
-| `created_at`                | `TIMESTAMP`  | Timestamp of record creation.                                                     |
-| `updated_at`                | `TIMESTAMP`  | Timestamp of last record update.                                                  |
-
-### `sensor_bands_config` Table
-Configuration of required bands for each sensor type, used in ETL logic and functions.
-
-| Column             | Type        | Description                                                                 |
-|--------------------|-------------|-----------------------------------------------------------------------------|
-| `sensor`           | `TEXT` (PK) | Sensor name (e.g., 'OLI', 'ETM+', 'TM').                                    |
-| `green_band`       | `TEXT`      | Name of the green band for this sensor.                                     |
-| `swir_band`        | `TEXT`      | Name of the SWIR band for this sensor.                                      |
-| `qa_bands`         | `TEXT[]`    | Array of required QA band names for this sensor.                            |
-| `date_range_start` | `DATE`      | Start date of validity for this configuration (optional).                   |
-| `date_range_end`   | `DATE`      | End date of validity for this configuration (optional).                     |
-
-### Why a Partitioned Table?
-The `landsat_bands` table is **partitioned by year**. This design decision is **fundamental for the system's scalability** for several reasons:
-
-1.  **Query Performance:** When a query filters by a date range (e.g., "analyze all bands from 2023"), the PostgreSQL Query Planner is smart enough to scan **only** the `landsat_bands_2023` partition, completely ignoring data from other years. This is known as *Partition Pruning* and dramatically reduces read times.
-
-2.  **Efficient Maintenance:** Data lifecycle management becomes trivial. If, in the future, you need to delete data from 10 years ago, instead of running a costly `DELETE FROM ... WHERE year = ...`, you can simply execute `DROP TABLE landsat_bands_2014;`. This operation is nearly instantaneous, generates no transactional overhead, and does not fragment indexes.
-
-3.  **Optimized Data Loading:** It allows for more efficient data loading strategies and the creation of per-partition indexes, speeding up both writes and reads.
-
-## ETL Workflow
-
-The process runs as follows when `python main.py ingest` is invoked:
-
-1.  **Start and Configuration**: `main.py` receives parameters and calls the ingestion logic. Configuration is loaded from `config/landsat_config.yaml` and secrets from `.env`.
-2.  **Scene Search**: `M2MClient` authenticates with the USGS API and searches for scenes intersecting the AOI and meeting the date/cloud filters.
-3.  **Download**: Bands from new scenes are downloaded as `.TIF` files into the `data/temp/` folder.
-4.  **DB Ingestion (for each band)**:
-    a.  **Temporary Table**: `raster2pgsql` is used to create a unique temporary table with the raster data from the `.TIF` file.
-    b.  **Insertion**: An `INSERT INTO ... SELECT FROM ...` command copies data from the temp table to the correct annual partition (e.g., `landsat_bands_2024`), injecting key metadata.
-    c.  **Cleanup**: The temporary table is deleted.
-5.  **Completion**: The process logs a summary of the operation and cleans up temporary files and M2M lists.
-
-## Installation and Setup
-
-### Prerequisites
-
--   Python 3.12+
--   PostgreSQL 16.4+ with PostGIS 3.4+ (including `postgis_raster`).
--   Credentials for the [USGS M2M API](https://m2m.cr.usgs.gov/).
--   Optional: Docker for a simpler database setup.
-
-### Setup Steps
-
-1.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/chachr81/landsat_data.git
-    cd landsat_data
-    ```
-
-2.  **Install Dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3.  **Set Up the Database:**
-    -   In your database, enable the extensions:
-        ```sql
-        CREATE EXTENSION postgis;
-        CREATE EXTENSION postgis_raster;
-        ```
-    -   Run the DDL script to create the structure:
-        ```bash
-        psql -U your_user -d your_database -h your_host -f sql/schemas/01_bronze_raster.sql
-        ```
-
-4.  **Configure Secrets (`.env`):**
-    -   Create a `.env` file in the project root and add your credentials:
-        ```dotenv
-        POSTGRES_HOST=localhost
-        POSTGRES_USER=postgres
-        POSTGRES_PASSWORD=secret
-        POSTGRES_DB=gis_engine
-        POSTGRES_PORT=5432
-        M2M_USERNAME=your_m2m_username
-        M2M_PASSWORD=your_m2m_password
-        # M2M_API_KEY=your_api_key_if_used_instead_of_password
-        ```
-
-## CLI Usage Guide
-
-The single entry point is `main.py`.
-
-### Command: `ingest`
-
-| Argument      | Required | Description                                                    |
-|---------------|----------|----------------------------------------------------------------|
-| `--start`     | Yes      | Search start date (`YYYY-MM-DD`).                              |
-| `--end`       | Yes      | Search end date (`YYYY-MM-DD`).                                |
-| `--datasets`  | No       | Collections to process. Options are read from `config.yaml`.   |
-| `--clouds`    | No       | Maximum cloud cover percentage (0-100).                        |
-| `--dry-run`   | No       | Simulates the run without downloading or writing to the DB.    |
-| `--log-level` | No       | Logging level (`DEBUG`, `INFO`, `WARNING`).                    |
-
-**Example Executions:**
-
-```bash
-# Ingest data for the first quarter of 2024
-python main.py ingest --start 2024-01-01 --end 2024-04-01
-
-# Ingest only Landsat 7 data with a max of 10% cloud cover
-python main.py ingest --start 2022-01-01 --end 2023-01-01 --datasets landsat_7 --clouds 10
-```
-
-### Command: `cleanup-lists`
-
-Maintains the M2M API by removing old temporary scene lists.
-
-| Argument      | Required | Description                                                    |
-|---------------|----------|----------------------------------------------------------------|
-| `--list-id`   | Yes      | One or more M2M List IDs to delete.                            |
-| `--dry-run`   | No       | Simulates deletion.                                            |
-| `--force`     | No       | Skips confirmation prompt.                                     |
-
-**Example:**
-```bash
-python main.py cleanup-lists --list-id temp_list_12345 temp_list_67890
-```
-
-## Additional Documentation
-
--   For a detailed description of the Quality Assessment (QA) bands and how to interpret them, refer to the following document:
-    -   [**Guide to Landsat Quality Assessment Bands**](./docs/LANDSAT_QA_BANDS.md)
-
----
-
 # Documentación en Español
 
-<details>
-<summary><strong>Tabla de Contenidos</strong></summary>
+**Tabla de Contenidos**
 
 1.  [Visión General](#visión-general)
-2.  [Arquitectura del Proyecto](#arquitectura-del-proyecto-1)
-3.  [Modelo de Datos](#modelo-de-datos-1)
-4.  [Flujo de Trabajo del ETL](#flujo-de-trabajo-del-etl-1)
-5.  [Instalación y Configuración](#instalación-y-configuración-1)
-6.  [Guía de Uso del CLI](#guía-de-uso-del-cli-1)
-7.  [Documentación Adicional](#documentación-adicional-1)
-
-</details>
+2.  [Arquitectura del Proyecto](#arquitectura-del-proyecto)
+3.  [Modelo de Datos](#modelo-de-datos)
+4.  [Flujo de Trabajo del ETL](#flujo-de-trabajo-del-etl)
+5.  [Instalación y Configuración](#instalación-y-configuración)
+6.  [Guía de Uso del CLI](#guía-de-uso-del-cli)
+7.  [Documentación Adicional](#documentación-adicional)
 
 ## Visión General
 
@@ -455,3 +232,220 @@ python main.py cleanup-lists --list-id temp_list_12345 temp_list_67890
 
 -   Para una descripción detallada de las bandas de calidad (QA) y cómo interpretarlas, consulta el siguiente documento:
     -   [**Guía de Bandas de Calidad de Landsat**](./docs/LANDSAT_QA_BANDS.md)
+
+---
+
+# English Documentation
+
+**Table of Contents**
+
+1.  [Overview](#overview)
+2.  [Project Architecture](#project-architecture)
+3.  [Data Model](#data-model)
+4.  [ETL Workflow](#etl-workflow)
+5.  [Installation and Setup](#installation-and-setup)
+6.  [CLI Usage Guide](#cli-usage-guide)
+7.  [Additional Documentation](#additional-documentation)
+
+## Overview
+
+This project implements an ETL (Extract, Transform, Load) pipeline designed to automate the download and storage of **Landsat Collection 2, Level 2** data from the USGS M2M API. The spectral band data is ingested as rasters into a **PostgreSQL** database with the **PostGIS** extension, using a partitioned database design for optimal performance on temporal queries.
+
+The system is modular, configurable, and ready to be orchestrated by tools like Apache Airflow, thanks to its CLI entry point.
+
+## Project Architecture
+
+The project structure is designed to separate concerns (SoC), ensuring clean, maintainable, and scalable code.
+
+-   **`/main.py`**: **Main Entry Point**. A CLI that orchestrates the entire process. All operations, such as data ingestion, are initiated from here. It is the only script that needs to be run.
+
+-   **`/etl/`**: **Core ETL Package**. Contains the reusable business logic of the pipeline, functioning as an internal library.
+    -   `bronze_ingestion.py`: The main orchestrator that manages the search, download, and insertion flow.
+    -   `m2m_client.py`: A dedicated client for interacting with the USGS M2M API, handling authentication, retries, and requests.
+    -   `mtl_parser.py`: A utility for parsing metadata files (`_MTL.txt`) from Landsat scenes.
+    -   `utils.py`: Utility functions for loading configuration, managing secrets, setting up logging, and other common operations.
+
+-   **`/config/`**: **Project Configuration**.
+    -   `landsat_config.yaml`: The main configuration file and single source of truth for all non-sensitive parameters (bands to download, URLs, thresholds, etc.).
+    -   `roi_valencialake.geojson`: A GeoJSON file defining the Area of Interest (AOI) for scene searches.
+
+-   **`/.env`**: **Secrets and Environment Variables**. This file, ignored by Git, **exclusively** contains sensitive information: database credentials and API tokens.
+
+-   **`/sql/`**: **Database Infrastructure**.
+    -   `schemas/01_bronze_raster.sql`: DDL (Data Definition Language) script that defines and creates the entire schema (`bronze`), tables, year-based partitions, indexes, and views. It is the foundation for database reproducibility.
+
+-   **`/scripts/`**: Contains utility scripts for diagnostics or testing (`debug_m2m_download.py`).
+
+-   **`/data/`**, **`/logs/`**: Working directories (tracked by Git via `.gitkeep` but their content is ignored) where temporary downloaded files and execution logs are stored, respectively.
+
+## Data Model
+
+The database is designed for the efficient storage of large volumes of geospatial-temporal data.
+
+-   **`bronze` Schema**: Houses the "raw" or minimally processed data, following the first stage of a Medallion architecture.
+
+### `landsat_scenes` Table
+Stores metadata for each unique scene.
+
+| Column             | Type                | Description                                                                 |
+|--------------------|---------------------|-----------------------------------------------------------------------------|
+| `scene_id`         | `SERIAL` (PK)       | Internal unique identifier for each scene.                                  |
+| `entity_id`        | `TEXT` (UNIQUE)     | USGS entity ID (e.g., `LC09_L2SP_004053_20240125_20240126_02_T1`).          |
+| `acquisition_date` | `DATE`              | Date the scene was captured.                                                |
+| `sensor`           | `TEXT`              | Sensor that captured the scene (e.g., 'OLI', 'ETM+').                        |
+| `cloud_cover`      | `REAL`              | Cloud cover percentage (0-100).                                             |
+| `footprint`        | `GEOMETRY(POLYGON)` | The geospatial footprint of the scene in geographic coordinates.            |
+
+### `landsat_bands` Table
+Stores raster data for each band, tiled for optimized access.
+
+| Column      | Type                | Description                                                                 |
+|-------------|---------------------|-----------------------------------------------------------------------------|
+| `rid`       | `SERIAL` (PK part)  | Unique identifier for each raster tile.                                     |
+| `scene_id`  | `INTEGER` (FK)      | Reference to the scene this band belongs to (`landsat_scenes`).             |
+| `band_name` | `TEXT`              | Name of the band (e.g., 'SR_B3', 'QA_PIXEL').                               |
+| `year`      | `INTEGER` (PK part) | Acquisition year. **Partitioning Key**.                                     |
+| `rast`      | `RASTER`            | The pixel data in PostGIS Raster format.                                    |
+| `filename`  | `TEXT`              | Original filename from which the raster was ingested.                       |
+
+### `download_log` Table
+Audit log for each Landsat file download performed.
+
+| Column                      | Type         | Description                                                                       |
+|-----------------------------|--------------|-----------------------------------------------------------------------------------|
+| `log_id`                    | `SERIAL` (PK) | Unique identifier for the download record.                                        |
+| `entity_id`                 | `TEXT`       | USGS entity ID of the downloaded scene.                                           |
+| `band_name`                 | `TEXT`       | Name of the band or product downloaded.                                           |
+| `download_url`              | `TEXT`       | URL of the file download.                                                         |
+| `download_status`           | `TEXT`       | Status of the download ('pending', 'success', 'failed', 'skipped').               |
+| `attempt_count`             | `INTEGER`    | Number of download attempts.                                                      |
+| `error_message`             | `TEXT`       | Error message if the download failed.                                             |
+| `file_size_mb`              | `REAL`       | Size of the downloaded file in MB.                                                |
+| `download_duration_seconds` | `REAL`       | Duration of the download in seconds.                                              |
+| `created_at`                | `TIMESTAMP`  | Timestamp of record creation.                                                     |
+| `updated_at`                | `TIMESTAMP`  | Timestamp of last record update.                                                  |
+
+### `sensor_bands_config` Table
+Configuration of required bands for each sensor type, used in ETL logic and functions.
+
+| Column             | Type        | Description                                                                 |
+|--------------------|-------------|-----------------------------------------------------------------------------|
+| `sensor`           | `TEXT` (PK) | Sensor name (e.g., 'OLI', 'ETM+', 'TM').                                    |
+| `green_band`       | `TEXT`      | Name of the green band for this sensor.                                     |
+| `swir_band`        | `TEXT`      | Name of the SWIR band for this sensor.                                      |
+| `qa_bands`         | `TEXT[]`    | Array of required QA band names for this sensor.                            |
+| `date_range_start` | `DATE`      | Start date of validity for this configuration (optional).                   |
+| `date_range_end`   | `DATE`      | End date of validity for this configuration (optional).                     |
+
+### Why a Partitioned Table?
+The `landsat_bands` table is **partitioned by year**. This design decision is **fundamental for the system's scalability** for several reasons:
+
+1.  **Query Performance:** When a query filters by a date range (e.g., "analyze all bands from 2023"), the PostgreSQL Query Planner is smart enough to scan **only** the `landsat_bands_2023` partition, completely ignoring data from other years. This is known as *Partition Pruning* and dramatically reduces read times.
+
+2.  **Efficient Maintenance:** Data lifecycle management becomes trivial. If, in the future, you need to delete data from 10 years ago, instead of running a costly `DELETE FROM ... WHERE year = ...`, you can simply execute `DROP TABLE landsat_bands_2014;`. This operation is nearly instantaneous, generates no transactional overhead, and does not fragment indexes.
+
+3.  **Optimized Data Loading:** It allows for more efficient data loading strategies and the creation of per-partition indexes, speeding up both writes and reads.
+
+## ETL Workflow
+
+The process runs as follows when `python main.py ingest` is invoked:
+
+1.  **Start and Configuration**: `main.py` receives parameters and calls the ingestion logic. Configuration is loaded from `config/landsat_config.yaml` and secrets from `.env`.
+2.  **Scene Search**: `M2MClient` authenticates with the USGS API and searches for scenes intersecting the AOI and meeting the date/cloud filters.
+3.  **Download**: Bands from new scenes are downloaded as `.TIF` files into the `data/temp/` folder.
+4.  **DB Ingestion (for each band)**:
+    a.  **Temporary Table**: `raster2pgsql` is used to create a unique temporary table with the raster data from the `.TIF` file.
+    b.  **Insertion**: An `INSERT INTO ... SELECT FROM ...` command copies data from the temp table to the correct annual partition (e.g., `landsat_bands_2024`), injecting key metadata.
+    c.  **Cleanup**: The temporary table is deleted.
+5.  **Completion**: The process logs a summary of the operation and cleans up temporary files and M2M lists.
+
+## Installation and Setup
+
+### Prerequisites
+
+-   Python 3.12+
+-   PostgreSQL 16.4+ with PostGIS 3.4+ (including `postgis_raster`).
+-   Credentials for the [USGS M2M API](https://m2m.cr.usgs.gov/).
+-   Optional: Docker for a simpler database setup.
+
+### Setup Steps
+
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/chachr81/landsat_data.git
+    cd landsat_data
+    ```
+
+2.  **Install Dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+3.  **Set Up the Database:**
+    -   In your database, enable the extensions:
+        ```sql
+        CREATE EXTENSION postgis;
+        CREATE EXTENSION postgis_raster;
+        ```
+    -   Run the DDL script to create the structure:
+        ```bash
+        psql -U your_user -d your_database -h your_host -f sql/schemas/01_bronze_raster.sql
+        ```
+
+4.  **Configure Secrets (`.env`):**
+    -   Create a `.env` file in the project root and add your credentials:
+        ```dotenv
+        POSTGRES_HOST=localhost
+        POSTGRES_USER=postgres
+        POSTGRES_PASSWORD=secret
+        POSTGRES_DB=gis_engine
+        POSTGRES_PORT=5432
+        M2M_USERNAME=your_m2m_username
+        M2M_PASSWORD=your_m2m_password
+        # M2M_API_KEY=your_api_key_if_used_instead_of_password
+        ```
+
+## CLI Usage Guide
+
+The single entry point is `main.py`.
+
+### Command: `ingest`
+
+| Argument      | Required | Description                                                    |
+|---------------|----------|----------------------------------------------------------------|
+| `--start`     | Yes      | Search start date (`YYYY-MM-DD`).                              |
+| `--end`       | Yes      | Search end date (`YYYY-MM-DD`).                                |
+| `--datasets`  | No       | Collections to process. Options are read from `config.yaml`.   |
+| `--clouds`    | No       | Maximum cloud cover percentage (0-100).                        |
+| `--dry-run`   | No       | Simulates the run without downloading or writing to the DB.    |
+| `--log-level` | No       | Logging level (`DEBUG`, `INFO`, `WARNING`).                    |
+
+**Example Executions:**
+
+```bash
+# Ingest data for the first quarter of 2024
+python main.py ingest --start 2024-01-01 --end 2024-04-01
+
+# Ingest only Landsat 7 data with a max of 10% cloud cover
+python main.py ingest --start 2022-01-01 --end 2023-01-01 --datasets landsat_7 --clouds 10
+```
+
+### Command: `cleanup-lists`
+
+Maintains the M2M API by removing old temporary scene lists.
+
+| Argument      | Required | Description                                                    |
+|---------------|----------|----------------------------------------------------------------|
+| `--list-id`   | Yes      | One or more M2M List IDs to delete.                            |
+| `--dry-run`   | No       | Simulates deletion.                                            |
+| `--force`     | No       | Skips confirmation prompt.                                     |
+
+**Example:**
+```bash
+python main.py cleanup-lists --list-id temp_list_12345 temp_list_67890
+```
+
+## Additional Documentation
+
+-   For a detailed description of the Quality Assessment (QA) bands and how to interpret them, refer to the following document:
+    -   [**Guide to Landsat Quality Assessment Bands**](./docs/LANDSAT_QA_BANDS.md)
