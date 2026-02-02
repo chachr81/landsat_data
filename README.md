@@ -40,6 +40,25 @@ El sistema es modular, configurable y está preparado para ser orquestado por he
 
 La estructura del proyecto está diseñada para separar responsabilidades (SoC), garantizando un código limpio, mantenible y escalable.
 
+```
+.
+├── config/               # Configuración (YAML, GeoJSON)
+├── data/                 # Datos temporales y logs (ignorados por git)
+├── docs/                 # Documentación adicional
+├── etl/                  # Código fuente del pipeline ETL
+│   ├── bronze_ingestion.py
+│   ├── m2m_client.py
+│   ├── mtl_parser.py
+│   └── utils.py
+├── scripts/              # Scripts de utilidad
+├── sql/                  # Scripts SQL (schemas)
+├── .env                  # Variables de entorno (secretos)
+├── .gitignore
+├── main.py               # Punto de entrada CLI
+├── README.md
+└── requirements.txt      # Dependencias Python
+```
+
 -   **`/main.py`**: **Punto de Entrada Principal (Entry Point)**. Es la única interfaz de línea de comandos (CLI) que orquesta todo el proceso. Centraliza la ejecución y es ideal para ser llamado desde flujos de trabajo automatizados.
 
 -   **`/etl/`**: **Paquete Core del ETL**. Contiene la lógica de negocio reutilizable del pipeline, funcionando como una librería interna.
@@ -257,6 +276,25 @@ The system is modular, configurable, and ready to be orchestrated by tools like 
 
 The project structure is designed to separate concerns (SoC), ensuring clean, maintainable, and scalable code.
 
+```
+.
+├── config/               # Configuration (YAML, GeoJSON)
+├── data/                 # Temporary data and logs (ignored by git)
+├── docs/                 # Additional documentation
+├── etl/                  # ETL pipeline source code
+│   ├── bronze_ingestion.py
+│   ├── m2m_client.py
+│   ├── mtl_parser.py
+│   └── utils.py
+├── scripts/              # Utility scripts
+├── sql/                  # SQL scripts (schemas)
+├── .env                  # Environment variables (secrets)
+├── .gitignore
+├── main.py               # CLI Entry Point
+├── README.md
+└── requirements.txt      # Python dependencies
+```
+
 -   **`/main.py`**: **Main Entry Point**. A CLI that orchestrates the entire process. All operations, such as data ingestion, are initiated from here. It is the only script that needs to be run.
 
 -   **`/etl/`**: **Core ETL Package**. Contains the reusable business logic of the pipeline, functioning as an internal library.
@@ -447,5 +485,8 @@ python main.py cleanup-lists --list-id temp_list_12345 temp_list_67890
 
 ## Additional Documentation
 
+
+
 -   For a detailed description of the Quality Assessment (QA) bands and how to interpret them, refer to the following document:
+
     -   [**Guide to Landsat Quality Assessment Bands**](./docs/LANDSAT_QA_BANDS.md)
