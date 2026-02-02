@@ -1,0 +1,124 @@
+# ========================================
+# CONFIGURACIÓN DE DATASETS LANDSAT
+# Collection 2 Level-2 Surface Reflectance
+# ========================================
+
+# M2M API Configuration
+m2m:
+  api_url: "https://m2m.cr.usgs.gov/api/api/json/stable/"
+  max_cloud_cover: 40  # Porcentaje máximo de cobertura de nubes
+  max_retries: 3
+  timeout_seconds: 1200
+
+# Datasets Landsat por sensor
+datasets:
+  landsat_8_9:
+    m2m_name: "landsat_ot_c2_l2"
+    description: "Landsat 8-9 OLI/TIRS Collection 2 Level-2"
+    sensors: ["OLI", "TIRS"]
+    date_range: ["2013-04-11", "2026-12-31"]
+    bands:
+      green: "SR_B3"
+      swir1: "SR_B6"
+      qa_pixel: "QA_PIXEL"
+      qa_radsat: "QA_RADSAT"
+      qa_aerosol: "QA_AEROSOL"
+      metadata: "MTL"
+    
+  landsat_7:
+    m2m_name: "landsat_etm_c2_l2"
+    description: "Landsat 7 ETM+ Collection 2 Level-2"
+    sensors: ["ETM+"]
+    date_range: ["1999-05-28", "2026-12-31"]
+    bands:
+      green: "SR_B2"
+      swir1: "SR_B5"
+      qa_pixel: "QA_PIXEL"
+      qa_radsat: "QA_RADSAT"
+      metadata: "MTL"
+    notes: "SLC-off desde 2003-05-31 (bandas con franjas sin datos)"
+    
+  landsat_4_5:
+    m2m_name: "landsat_tm_c2_l2"
+    description: "Landsat 4-5 TM Collection 2 Level-2"
+    sensors: ["TM"]
+    date_range: ["1982-08-22", "2013-06-05"]
+    bands:
+      green: "SR_B2"
+      swir1: "SR_B5"
+      qa_pixel: "QA_PIXEL"
+      qa_radsat: "QA_RADSAT"
+      metadata: "MTL"
+    notes: "Landsat 4: 1982-1993, Landsat 5: 1984-2013"
+
+landsat_band_files:
+  m2m_name: "landsat_band_files_c2_l2"
+  description: "Landsat Collection 2 Level 2 Band Files (Bandas individuales)"
+  date_range: ["1982-08-22", "2025-01-02"]
+
+# Configuración de máscaras QA
+qa_masks:
+  qa_pixel:
+    # Bits a enmascarar (excluir del análisis)
+    fill: 0           # Bit 0: Pixel sin datos
+    dilated_cloud: 1  # Bit 1: Buffer de seguridad alrededor de nubes
+    cloud: 3          # Bit 3: Nube detectada
+    cloud_shadow: 4   # Bit 4: Sombra de nube
+    # Máscara combinada en hexadecimal
+    combined_mask: 0x001B  # Binario: 0b0000000000011011
+    
+  qa_radsat:
+    # Verificar saturación en bandas de interés
+    check_bands:
+      landsat_8_9: [2, 5]  # Bits para B3 (green) y B6 (swir1)
+      landsat_5_7: [1, 4]  # Bits para B2 (green) y B5 (swir1)
+
+# Prioridad de sensores para análisis temporal
+sensor_priority:
+  - "OLI"
+  - "ETM+"
+  - "TM"
+
+download:
+  file_type: "band"
+  max_concurrent: 5
+  chunk_size_bytes: 8192
+  retry_failed: true
+  retry_delay_seconds: 5
+  
+storage:
+  raw_data: "data/raw/landsat"
+  silver_data: "data/silver/mndwi"
+  gold_data: "data/gold/metrics"
+  temp_dir: "data/temp"
+  logs: "logs/etl"
+
+aoi:
+  name: "Lago de Valencia"
+  country: "Venezuela"
+  geojson_path: "config/roi_valencialake.geojson"
+  bbox: [-68.008472, 9.991131, -67.494426, 10.334375]
+  epsg: 4326
+
+processing:
+  mndwi:
+    formula: "(Green - SWIR1) / (Green + SWIR1)"
+    threshold: 0.0
+    nodata_value: -9999
+  
+  temporal_aggregation:
+    methods: ["median", "mean", "min", "max"]
+    windows: ["monthly", "seasonal", "annual"]
+    
+  output_format:
+    raster: "GTiff"
+    vector: "GeoJSON"
+    compression: "LZW"
+    tiled: true
+    blocksize: 512
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file_rotation: "midnight"
+  backup_count: 30

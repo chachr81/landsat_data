@@ -1,26 +1,49 @@
-# Ignore everything by default
-*
+# ===================================
+# Archivos de Entorno y Sistema
+# ===================================
+.idea/
+.vscode/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.gemini/
+.github/
+.env
+.gitattributes
+*REDACTORIZACION.MD
+README_NOTEBOOK.md
 
-# But keep the following files and directories:
-# --- Notebook and its documentation ---
-!/notebook/
+# ===================================
+# Ignorar Contenido de Carpetas de Artefactos
+# ===================================
+# Ignora todo DENTRO de estas carpetas...
+/logs/*
+/data/*
+/figures/*
 /notebook/*
-!/notebook/sedona_testing_landcover_metrics.ipynb
-!/README_NOTEBOOK.md
-!/docs/
+/resources/*
+/scripts/*
 /docs/*
-!/docs/leyenda_description.pdf
+/sql/diagnostics/*
+/spark-warehouse/*
+/tmp/*
 
-# --- Dependencies and Config ---
+#...PERO no ignores estos archivos específicos (excepciones)
+!/logs/.gitkeep
+!/data/.gitkeep
+!/docs/LANDSAT_QA_BANDS.md
+!/scripts/test_bronze_etl.py
+!/scripts/debug_m2m_download.py
+
+# ===================================
+# No ignorar el código fuente principal
+# ===================================
+# Estas reglas aseguran que las carpetas raíz del código siempre se incluyan
+!/etl/
+!/sql/
+!/config/
+!/main.py
 !/requirements.txt
-!/environment.yml
-!/.env.example
-!/libs/
-!/libs/*
-
-# --- Data ---
-!/data/
-!/data/db_backup.dump
-
-# --- Gitignore itself ---
+!/README.md
 !/.gitignore
