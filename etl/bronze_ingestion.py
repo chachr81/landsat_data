@@ -434,7 +434,7 @@ class BronzeIngestion:
                     %(entity_id)s, %(display_id)s, %(dataset_name)s, %(sensor)s, %(satellite)s,
                     %(acquisition_date)s, %(path_row)s, %(cloud_cover)s, %(sun_azimuth)s,
                     %(sun_elevation)s, %(processing_level)s, 
-                    ST_GeomFromText(%(footprint_wkt)s, 4326)
+                    ST_Transform(ST_GeomFromText(%(footprint_wkt)s, 4326), 32619)
                 )
                 ON CONFLICT (entity_id) DO UPDATE SET
                     cloud_cover = EXCLUDED.cloud_cover,

@@ -133,9 +133,6 @@ def apply_cloud_mask(green_band, swir_band, qa_pixel, qa_radsat):
 - **USGS Landsat Collection 2 QA Tools:**  
   https://www.usgs.gov/landsat-missions/landsat-collection-2-quality-assessment-bands
 
-- **Bit Unpacking Python Example:**  
-  https://github.com/USGS-EROS/espa-product-formatter/blob/master/scripts/qa_pixel_unpacking.py
-
 - **Landsat 8-9 Data Users Handbook:**  
   https://www.usgs.gov/media/files/landsat-8-9-olitirs-collection-2-level-2-data-format-control-book
 

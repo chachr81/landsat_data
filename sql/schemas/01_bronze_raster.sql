@@ -4,7 +4,7 @@
 -- Propósito: Almacenar bandas espectrales y QA como rasters en PostGIS
 -- Estrategia: Tablas particionadas por año para optimizar queries temporales
 -- Tiling: 512x512 píxeles para balance entre I/O y memoria
--- SRID: 32618 (UTM Zone 18N - Venezuela) para reducir distorsión
+-- SRID: 32619 (UTM Zone 19N - Venezuela) para reducir distorsión
 
 -- Crear schema si no existe
 CREATE SCHEMA IF NOT EXISTS bronze;
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS bronze.landsat_scenes (
     sun_elevation REAL,               -- Elevación solar
     processing_level TEXT,            -- 'L2SP', 'L2SR'
     download_date TIMESTAMP DEFAULT NOW(),
-    footprint GEOMETRY(POLYGON, 4326), -- Huella espacial de la escena
+    footprint GEOMETRY(POLYGON, 32619), -- Huella espacial de la escena (UTM 19N)
     
     -- Índices
     CONSTRAINT check_cloud_cover CHECK (cloud_cover >= 0 AND cloud_cover <= 100)
@@ -213,8 +213,8 @@ COMMENT ON VIEW bronze.v_bands_inventory IS 'Inventario de bandas disponibles po
 -- FINALIZADO
 -- =====================================================
 -- Verificar creación
-\echo 'Bronze schema creado exitosamente'
-\echo 'Verificando particiones creadas...'
+-- Bronze schema creado exitosamente
+-- Verificando particiones creadas...
 SELECT 
     schemaname, 
     tablename 
