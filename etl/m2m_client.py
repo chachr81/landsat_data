@@ -666,8 +666,8 @@ if __name__ == '__main__':
     # Test de login
     try:
         with M2MClient() as client:
-            print("✓ Login successful")
+            print("Login successful")
             print(f"  API Key: {client.api_key[:20]}...")
             
     except Exception as e:
-        print(f"✗ Login failed: {e}")
+        print(f"Login failed: {e}")

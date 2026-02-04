@@ -375,36 +375,36 @@ if __name__ == '__main__':
     # Test load config
     try:
         config = load_config()
-        print(f"\n✓ Config loaded: {len(config)} keys")
+        print(f"\nConfig loaded: {len(config)} keys")
     except Exception as e:
-        print(f"\n✗ Config error: {e}")
+        print(f"\nConfig error: {e}")
     
     # Test load env
     try:
         env = load_env()
-        print(f"✓ Env loaded: {len(env)} variables")
+        print(f"Env loaded: {len(env)} variables")
     except Exception as e:
-        print(f"✗ Env error: {e}")
+        print(f"Env error: {e}")
     
     # Test data dirs
     try:
         dirs = get_data_dirs()
-        print(f"✓ Data dirs: {list(dirs.keys())}")
+        print(f"Data dirs: {list(dirs.keys())}")
     except Exception as e:
-        print(f"✗ Data dirs error: {e}")
+        print(f"Data dirs error: {e}")
     
     # Test logger
     logger = setup_logger('test_logger', 'test.log')
     logger.info("Test log message")
-    print("✓ Logger configured")
+    print("Logger configured")
     
     # Test GeoJSON
     try:
         geojson = load_aoi_geojson()
         bbox = get_bbox_from_geojson(geojson)
-        print(f"✓ GeoJSON loaded, bbox: {bbox}")
+        print(f"GeoJSON loaded, bbox: {bbox}")
     except Exception as e:
-        print(f"✗ GeoJSON error: {e}")
+        print(f"GeoJSON error: {e}")
     
     # Test sensor detection
     test_ids = [
@@ -414,6 +414,6 @@ if __name__ == '__main__':
     ]
     for eid in test_ids:
         sensor = get_sensor_from_entity_id(eid)
-        print(f"✓ {eid[:4]} -> {sensor}")
+        print(f"{eid[:4]} -> {sensor}")
     
     print("\n=== Tests completed ===")
