@@ -15,7 +15,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from .utils import (
+from ..infra.config import (
     load_config,
     load_env,
     setup_logger,

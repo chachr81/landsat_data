@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "aculeo-monitor"
+version = "0.1.0"
+description = "Monitoreo de Laguna de Aculeo — Pipeline Medallion (Bronze/Silver/Gold) sobre Landsat C2L2"
+requires-python = ">=3.11"
+dependencies = [
+    "psycopg2-binary>=2.9.11",
+    "rasterio>=1.4.3",
+    "numpy>=2.3.5",
+    "scipy>=1.16.3",
+    "scikit-learn>=1.7.2",
+    "shapely>=2.1.2",
+    "pyyaml>=6.0.3",
+    "python-dotenv>=1.2.1",
+    "paramiko>=4.0.0",
+    "sshtunnel>=0.4.0",
+    "requests>=2.32.5",
+]
+
+[project.scripts]
+aculeo = "aculeo.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aculeo*"]

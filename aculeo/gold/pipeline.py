@@ -15,7 +15,7 @@ from shapely.geometry import shape, MultiPolygon
 from shapely.ops import unary_union
 
 from .interfaces import ISpectralIndexReader, IMetricsWriter
-from .water_detector import WaterBodyDetector
+from .detector import WaterBodyDetector
 
 # Centroide de referencia de Laguna de Aculeo en SRID 32619
 # Derivado de metric_id=67 (2013-09-03, 10.36 km², detección validada)

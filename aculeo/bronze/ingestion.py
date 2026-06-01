@@ -15,13 +15,14 @@ import psycopg2
 
 from .m2m_client import M2MClient
 from .mtl_parser import MTLParser
-from .utils import (
-    load_config,
-    load_env,
-    setup_logger,
-    get_db_connection_string,
-    get_sensor_from_entity_id
-)
+from ..infra.config import load_config, load_env, setup_logger
+from ..infra.db import get_db_connection_string
+
+
+def _get_sensor_from_entity_id(entity_id: str) -> str:
+    prefix = entity_id[:4] if '_' in entity_id else entity_id[:3]
+    return {'LC08': 'OLI', 'LC09': 'OLI', 'LC8': 'OLI', 'LC9': 'OLI',
+            'LE07': 'ETM+', 'LE7': 'ETM+', 'LT05': 'TM', 'LT5': 'TM'}.get(prefix, 'UNKNOWN')
 
 
 class BronzeIngestion:
@@ -332,7 +333,7 @@ class BronzeIngestion:
         """
         self.logger.info(f"Processing scene: {entity_id}")
         
-        sensor = get_sensor_from_entity_id(entity_id)
+        sensor = _get_sensor_from_entity_id(entity_id)
         required_bands = self._get_required_bands(sensor)
         
         scene_products = [p for p in products if p.get('entityId') == entity_id]

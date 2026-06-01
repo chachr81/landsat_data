@@ -73,7 +73,7 @@ class WaterBodyDetector:
     _MIN_WATER_PIXELS       = 9       # minimo de pixeles para considerar cuerpo de agua
 
     # Filtros calibrados para Laguna de Aculeo
-    _THRESHOLD_RANGE        = (-0.40, 0.10)   # rango valido del umbral GMM
+    _THRESHOLD_RANGE        = (-0.334, -0.003)  # rango valido del umbral GMM calibrado para Aculeo
     _WATER_MODE_MEAN_RANGE  = (-0.50, 0.15)   # media del modo agua en el GMM
     _MAX_WATER_AREA_KM2     = 15.0            # area maxima historica del lago + margen
     _MIN_COMPACTNESS        = 0.03            # filtrar componentes muy elongados
@@ -162,7 +162,7 @@ class WaterBodyDetector:
             scene_index_median         = scene_median,
             mndwi_water_mean           = float(np.nanmean(lake_values)) if lake_values.size else 0.0,
             mndwi_water_std            = float(np.nanstd(lake_values))  if lake_values.size else 0.0,
-            water_mask                 = final_mask,
+            water_mask                 = lake_mask,
         )
 
     # -------------------------------------------------------

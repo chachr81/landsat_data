@@ -10,7 +10,8 @@ from typing import Any, Dict, Optional
 import numpy as np
 import psycopg2
 
-from ..utils import get_db_connection_string, load_env
+from ..infra.config import load_env
+from ..infra.db import get_db_connection_string
 from .interfaces import ISpectralIndexReader, IMetricsWriter
 
 

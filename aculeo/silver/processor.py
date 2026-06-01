@@ -17,8 +17,9 @@ import psycopg2
 import rasterio
 from rasterio.transform import Affine
 
-from .utils import load_env, get_db_connection_string, setup_logger, get_ssh_tunnel
-from .analysis.qa_processor import LandsatC2L2QAProcessor
+from ..infra.config import load_env, setup_logger
+from ..infra.db import get_db_connection_string
+from .qa import LandsatC2L2QAProcessor
 
 
 # Bandas necesarias para los dos indices
