@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 from datetime import datetime
-from urllib.parse import quote_plus
+
 
 import yaml
 from dotenv import dotenv_values
@@ -202,105 +202,65 @@ def get_bbox_from_geojson(geojson: Dict) -> Tuple[float, float, float, float]:
     return (min(lons), min(lats), max(lons), max(lats))
 
 
+import paramiko
+if not hasattr(paramiko, 'DSSKey'):
+    paramiko.DSSKey = None
+from sshtunnel import SSHTunnelForwarder
+from urllib.parse import urlparse, urlunparse
+from contextlib import contextmanager
+
 # =====================================================
-# DATABASE HELPERS
+# SSH TUNNEL & DB CONNECTIONS
 # =====================================================
 
-def get_db_connection_string(env: Optional[Dict] = None) -> str:
+@contextmanager
+def get_ssh_tunnel(env: Dict[str, str], remote_port_key: str = 'DB_PORT'):
     """
-    Construye la cadena de conexión PostgreSQL desde .env
+    Context manager que abre un túnel SSH y devuelve el puerto local enlazado.
+    """
+    ssh_host = env.get('SSH_HOST')
+    ssh_user = env.get('SSH_USER')
+    ssh_key = env.get('SSH_KEY_PATH')
+    remote_port = int(env.get(remote_port_key, 5432))
     
-    Args:
-        env: Diccionario de secretos de .env (opcional)
-    
-    Returns:
-        str: Connection string en formato postgresql://
-    
-    Raises:
-        ValueError: Si faltan variables requeridas en .env
+    if not all([ssh_host, ssh_user, ssh_key]):
+        raise ValueError("Faltan variables de entorno para el túnel SSH (SSH_HOST, SSH_USER, SSH_KEY_PATH)")
+
+    with SSHTunnelForwarder(
+        (ssh_host, 22),
+        ssh_username=ssh_user,
+        ssh_pkey=ssh_key,
+        remote_bind_address=('127.0.0.1', remote_port)
+    ) as tunnel:
+        yield tunnel.local_bind_port
+
+def get_db_connection_string(env: Optional[Dict] = None, local_port: Optional[int] = None) -> str:
+    """
+    Construye la cadena de conexión a partir de la DB_URL en .env.
+    Fuerza SIEMPRE la conexión a la base de datos 'maps_negentropy' 
+    donde reside todo el ecosistema geoespacial de este proyecto.
     """
     if env is None:
         env = load_env()
     
-    user = env.get('POSTGRES_USER')
-    password = env.get('POSTGRES_PASSWORD')
-    host = env.get('POSTGRES_HOST')
-    port = env.get('POSTGRES_PORT')
-    database = env.get('POSTGRES_DB')
+    db_url = env.get('DB_URL')
+    if not db_url:
+        raise ValueError("Falta la variable DB_URL en el .env")
+        
+    parsed = urlparse(db_url)
     
-    if not all([user, password, host, port, database]):
-        raise ValueError(
-            "Faltan secretos de BD en .env. Requeridos: "
-            "POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB"
-        )
+    # Reemplazar host y puerto si usamos túnel SSH
+    netloc_parts = parsed.netloc.split('@')
+    auth_part = netloc_parts[0] + '@' if len(netloc_parts) > 1 else ''
     
-    password_encoded = quote_plus(password)
+    host = '127.0.0.1' if local_port else parsed.hostname
+    port = local_port if local_port else parsed.port
     
-    return f"postgresql://{user}:{password_encoded}@{host}:{port}/{database}"
-
-# ... (JDBC helpers también se mantienen, ya que usan .env para credenciales)
-def get_jdbc_url(env: Optional[Dict] = None) -> str:
-    """
-    Construye la URL JDBC para Spark
+    new_netloc = f"{auth_part}{host}:{port}"
     
-    Args:
-        env: Diccionario de variables de entorno (opcional)
-    
-    Returns:
-        str: JDBC URL
-    
-    Raises:
-        ValueError: Si faltan variables requeridas en .env
-    """
-    if env is None:
-        env = load_env()
-    
-    host = env.get('POSTGRES_HOST')
-    port = env.get('POSTGRES_PORT')
-    database = env.get('POSTGRES_DB')
-    
-    if not all([host, port, database]):
-        raise ValueError(
-            "Missing database credentials in .env. Required: "
-            "POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB"
-        )
-    
-    return f"jdbc:postgresql://{host}:{port}/{database}"
-
-
-def get_jdbc_properties(env: Optional[Dict] = None) -> Dict[str, str]:
-    """
-    Obtiene las propiedades JDBC para Spark
-    
-    Args:
-        env: Diccionario de variables de entorno (opcional)
-    
-    Returns:
-        Dict[str, str]: Diccionario de propiedades JDBC
-    
-    Raises:
-        ValueError: Si faltan variables requeridas en .env
-    """
-    if env is None:
-        env = load_env()
-    
-    user = env.get('POSTGRES_USER')
-    password = env.get('POSTGRES_PASSWORD')
-    
-    if not user or not password:
-        raise ValueError(
-            "Missing database credentials in .env. Required: "
-            "POSTGRES_USER, POSTGRES_PASSWORD"
-        )
-    
-    return {
-        'user': user,
-        'password': password,
-        'driver': 'org.postgresql.Driver'
-    }
-
-# ... (El resto de helpers se mantiene sin cambios)
-
+    # FORZAR SIEMPRE LA CONEXIÓN A MAPS_NEGENTROPY
+    new_parsed = parsed._replace(netloc=new_netloc, path='/maps_negentropy')
+    return urlunparse(new_parsed)
 
 def format_file_size(size_bytes: float) -> str:
     """

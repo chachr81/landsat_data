@@ -3,24 +3,21 @@ Orquestador de ingesta Bronze Layer
 Coordina descarga M2M, parsing MTL e inserción en PostGIS Raster
 """
 
+import json
 import shutil
-import subprocess
+import time
 import logging
-import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 
 import psycopg2
-from psycopg2.extras import execute_values
 
 from .m2m_client import M2MClient
 from .mtl_parser import MTLParser
 from .utils import (
     load_config,
     load_env,
-    load_aoi_geojson,
-    geojson_to_m2m_spatial_filter,
     setup_logger,
     get_db_connection_string,
     get_sensor_from_entity_id
@@ -34,9 +31,9 @@ class BronzeIngestion:
     Pipeline:
         1. Buscar escenas en M2M API
         2. Descargar bandas + MTL a /tmp
-        3. Parsear MTL y registrar en bronze.landsat_scenes
+        3. Parsear MTL y registrar en aculeo_raw.landsat_scenes
         4. Cargar bandas como raster con raster2pgsql
-        5. Actualizar bronze.download_log
+        5. Actualizar aculeo_raw.download_log
         6. Limpiar archivos temporales
     """
     
@@ -46,7 +43,8 @@ class BronzeIngestion:
         end_date: str,
         max_cloud_cover: Optional[int] = None,
         logger: Optional[logging.Logger] = None,
-        dry_run: bool = False
+        dry_run: bool = False,
+        local_port: Optional[int] = None,
     ):
         """
         Inicializa el orquestador de ingesta
@@ -65,46 +63,64 @@ class BronzeIngestion:
         self.env = load_env()
         self.config = load_config()
         
-        self.max_cloud_cover = max_cloud_cover or int(self.env.get('MAX_CLOUD_COVER', 40))
+        self.max_cloud_cover = max_cloud_cover if max_cloud_cover is not None else int(self.env.get('MAX_CLOUD_COVER', 40))
         
         self.logger = logger or setup_logger(
             'BronzeIngestion',
-            log_file=f'bronze_ingestion_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log',
             level=self.env.get('LOG_LEVEL', 'INFO')
         )
         
         self.temp_dir = self._get_temp_dir()
-        self.db_conn_str = get_db_connection_string(self.env)
+        self.db_conn_str = get_db_connection_string(self.env, local_port=local_port)
         
         self._check_dependencies()
     
     def _get_temp_dir(self) -> Path:
-        """Obtiene el directorio temporal"""
+        """Obtiene el directorio temporal desde config/landsat_config.yaml."""
         from .utils import get_project_root
         project_root = get_project_root()
-        temp_path = project_root / self.env.get('DATA_TEMP_DIR', 'data/temp')
-        
+        relative = self.config.get('storage', {}).get('temp_dir', 'data/temp')
+        temp_path = project_root / relative
+
         if self.dry_run:
-            self.logger.info(f"DRY-RUN: Temporary directory '{temp_path}' would be used but not created.")
-            return temp_path # Return path, but don't create it
-        
+            self.logger.info(f"DRY-RUN: directorio temporal seria '{temp_path}'")
+            return temp_path
+
         temp_path.mkdir(parents=True, exist_ok=True)
+        self.logger.info(f"Directorio de descarga temporal: {temp_path}")
         return temp_path
     
     def _check_dependencies(self):
-        """Verifica que existan las herramientas necesarias"""
+        """Verifica dependencias Python necesarias para la ingesta."""
         if self.dry_run:
-            self.logger.info("DRY-RUN: Skipping dependency checks as no external tools will be invoked.")
             return
+        try:
+            import rasterio  # noqa: F401
+        except ImportError:
+            raise RuntimeError("rasterio no instalado. Ejecutar: pip install rasterio")
+        self.logger.info("Dependencias verificadas (rasterio disponible)")
 
-        if not shutil.which('raster2pgsql'):
-            raise RuntimeError("raster2pgsql not found. Install PostGIS tools.")
-        
-        if not shutil.which('psql'):
-            raise RuntimeError("psql not found. Install PostgreSQL client.")
-        
-        self.logger.info("Dependencies check passed")
-    
+    def _get_spatial_filter_from_db(self, sscuenca_id: int) -> Dict:
+        """
+        Consulta la geometria de la subsubcuenca en cuencas.dga_subsub_cuenca
+        y la convierte al formato de filtro espacial de la API M2M.
+        """
+        with psycopg2.connect(self.db_conn_str) as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT ST_AsGeoJSON(ST_Transform(geometria, 4326))
+                    FROM cuencas.dga_subsub_cuenca
+                    WHERE sscuenca_id = %s
+                """, (sscuenca_id,))
+                row = cur.fetchone()
+
+        if not row:
+            raise ValueError(f"sscuenca_id={sscuenca_id} no encontrada en cuencas.dga_subsub_cuenca")
+
+        geom = json.loads(row[0])
+        self.logger.info(f"Geometria AOI cargada desde BD (sscuenca_id={sscuenca_id})")
+        return {'filterType': 'geojson', 'geoJson': geom}
+
     def run(self, datasets: Optional[List[str]] = None) -> Dict:
         """
         Ejecuta el pipeline completo de ingesta
@@ -126,16 +142,19 @@ class BronzeIngestion:
         
         if datasets is None:
             datasets = [
-                'landsat_ot_c2_l2',
-                'landsat_etm_c2_l2',
-                'landsat_tm_c2_l2'
+                ds['m2m_name']
+                for ds in self.config.get('datasets', {}).values()
             ]
         
         self.logger.info(f"Starting ingestion from {self.start_date} to {self.end_date}")
         self.logger.info(f"Datasets: {datasets}")
-        
-        aoi_geojson = load_aoi_geojson()
-        spatial_filter = geojson_to_m2m_spatial_filter(aoi_geojson)
+
+        # Filtro espacial desde la geometria real de la cuenca en la BD
+        sscuenca_id = self.config['aoi']['sscuenca_id']
+        spatial_filter = self._get_spatial_filter_from_db(sscuenca_id)
+        wrs_path = str(self.config['aoi']['wrs_path']).zfill(3)
+        wrs_row  = str(self.config['aoi']['wrs_row']).zfill(3)
+        self.logger.info(f"AOI sscuenca_id={sscuenca_id} | path/row={wrs_path}/{wrs_row}")
         
         temporal_filter = {
             'start': self.start_date,
@@ -214,18 +233,47 @@ class BronzeIngestion:
         if not scenes:
             self.logger.warning(f"No scenes found in {dataset_name}")
             return stats
-        
-        stats['total_scenes'] = len(scenes)
-        entity_ids = [scene['entityId'] for scene in scenes]
-        
-        existing_ids = self._get_existing_entity_ids(entity_ids)
-        new_entity_ids = [eid for eid in entity_ids if eid not in existing_ids]
-        
-        if not new_entity_ids:
-            self.logger.info(f"All {len(entity_ids)} scenes already in database")
+
+        # Filtrar por path/row exacto para descartar escenas adyacentes
+        wrs_path = str(self.config['aoi']['wrs_path']).zfill(3)
+        wrs_row  = str(self.config['aoi']['wrs_row']).zfill(3)
+        expected = f"{wrs_path}/{wrs_row}"
+        scenes = [
+            s for s in scenes
+            if s.get('spatialCoverage', {}).get('path') == int(wrs_path)
+            and s.get('spatialCoverage', {}).get('row') == int(wrs_row)
+        ] or [
+            s for s in scenes
+            if expected in s.get('displayId', '')
+            or expected.replace('/', '') in s.get('entityId', '')
+        ]
+        self.logger.info(
+            f"{len(scenes)} escenas tras filtro path/row={expected} en {dataset_name}"
+        )
+
+        if not scenes:
+            self.logger.warning(f"Sin escenas para path/row={expected} en {dataset_name}")
             return stats
-        
-        self.logger.info(f"Processing {len(new_entity_ids)} new scenes (skipping {len(existing_ids)} existing)")
+
+        stats['total_scenes'] = len(scenes)
+
+        # displayId (Product ID) coincide con entity_id almacenado en la BD
+        # entityId (WRS-2) es lo que usa la API M2M para descargas
+        display_to_entity = {s['displayId']: s['entityId'] for s in scenes}
+        display_ids = list(display_to_entity.keys())
+
+        existing_display_ids = set(self._get_existing_entity_ids(display_ids))
+        new_entity_ids = [
+            display_to_entity[did]
+            for did in display_ids
+            if did not in existing_display_ids
+        ]
+
+        if not new_entity_ids:
+            self.logger.info(f"All {len(display_ids)} scenes already in database")
+            return stats
+
+        self.logger.info(f"Processing {len(new_entity_ids)} new scenes (skipping {len(existing_display_ids)} existing)")
         
         list_id = f"temp_{dataset_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         client.add_scenes_to_list(list_id, new_entity_ids, dataset_name)
@@ -233,19 +281,23 @@ class BronzeIngestion:
         products = client.get_download_options(list_id, dataset_name, file_type='band')
         
         try: # Ensure list cleanup even if scene processing fails
-            for entity_id in new_entity_ids:
+            for idx, entity_id in enumerate(new_entity_ids):
                 try:
                     scene_stats = self._process_scene(client, entity_id, products, dataset_name)
                     stats['total_bands'] += scene_stats['bands_processed']
                     stats['successful_scenes'] += 1
-                    
                 except Exception as e:
                     error_msg = f"Failed to process scene {entity_id}: {e}"
                     self.logger.error(error_msg)
                     stats['failed_scenes'] += 1
                     stats['errors'].append(error_msg)
-                    # Call _log_download_failure with appropriate placeholders for a scene-level error
                     self._log_download_failure(entity_id, "SCENE_PROCESSING_ERROR", "N/A", None, str(e))
+
+                # Pausa entre escenas para no saturar la API ni la BD
+                if idx < len(new_entity_ids) - 1:
+                    from .m2m_client import _INTER_SCENE_DELAY
+                    self.logger.debug(f"Pausa {_INTER_SCENE_DELAY}s entre escenas...")
+                    time.sleep(_INTER_SCENE_DELAY)
         finally:
             # Clean up the M2M list
             if self.dry_run:
@@ -362,17 +414,20 @@ class BronzeIngestion:
         }
         
         dataset_key = sensor_to_dataset.get(sensor, 'landsat_8_9')
-        dataset_config = self.config['datasets'][dataset_key]
+        dataset_config = self.config.get('datasets', {}).get(dataset_key)
+        if not dataset_config:
+            self.logger.warning(f"Dataset config no encontrado para sensor={sensor}, usando landsat_8_9")
+            dataset_config = self.config['datasets']['landsat_8_9']
         bands = dataset_config['bands']
         
         required = [
             bands.get('green'),
+            bands.get('nir'),
             bands.get('swir1'),
             bands.get('qa_pixel'),
             bands.get('qa_radsat'),
-            bands.get('metadata')
+            bands.get('metadata'),
         ]
-        
         if bands.get('qa_aerosol'):
             required.append(bands['qa_aerosol'])
         
@@ -402,7 +457,7 @@ class BronzeIngestion:
     
     def _insert_scene_metadata(self, mtl_file: Path, dataset_name: str) -> int:
         """
-        Parsea el MTL e inserta metadatos en bronze.landsat_scenes
+        Parsea el MTL e inserta metadatos en aculeo_raw.landsat_scenes
         
         Args:
             mtl_file: Ruta al archivo MTL
@@ -426,7 +481,7 @@ class BronzeIngestion:
         
         try:
             sql = """
-                INSERT INTO bronze.landsat_scenes (
+                INSERT INTO aculeo_raw.landsat_scenes (
                     entity_id, display_id, dataset_name, sensor, satellite,
                     acquisition_date, path_row, cloud_cover, sun_azimuth, sun_elevation,
                     processing_level, footprint
@@ -434,12 +489,13 @@ class BronzeIngestion:
                     %(entity_id)s, %(display_id)s, %(dataset_name)s, %(sensor)s, %(satellite)s,
                     %(acquisition_date)s, %(path_row)s, %(cloud_cover)s, %(sun_azimuth)s,
                     %(sun_elevation)s, %(processing_level)s, 
-                    ST_Transform(ST_GeomFromText(%(footprint_wkt)s, 4326), 32619)
+                    ST_ForcePolygonCCW(ST_GeomFromText(%(footprint_wkt)s, 4326))
                 )
                 ON CONFLICT (entity_id) DO UPDATE SET
-                    cloud_cover = EXCLUDED.cloud_cover,
-                    sun_azimuth = EXCLUDED.sun_azimuth,
-                    sun_elevation = EXCLUDED.sun_elevation
+                    cloud_cover    = EXCLUDED.cloud_cover,
+                    sun_azimuth    = EXCLUDED.sun_azimuth,
+                    sun_elevation  = EXCLUDED.sun_elevation,
+                    footprint      = EXCLUDED.footprint
                 RETURNING scene_id
             """
             
@@ -462,7 +518,7 @@ class BronzeIngestion:
         
         Args:
             successfully_downloaded_tifs: Lista de tuplas (Path al TIF, nombre de la banda)
-            scene_id: ID de la escena en bronze.landsat_scenes
+            scene_id: ID de la escena en aculeo_raw.landsat_scenes
             entity_id: Entity ID de la escena
         
         Returns:
@@ -519,7 +575,7 @@ class BronzeIngestion:
         
         try:
             cursor.execute(
-                "SELECT EXTRACT(YEAR FROM acquisition_date)::int FROM bronze.landsat_scenes WHERE scene_id = %s",
+                "SELECT EXTRACT(YEAR FROM acquisition_date)::int FROM aculeo_raw.landsat_scenes WHERE scene_id = %s",
                 (scene_id,)
             )
             return cursor.fetchone()[0]
@@ -527,27 +583,26 @@ class BronzeIngestion:
             cursor.close()
             conn.close()
     
+    # Mapa explícito filename-suffix → band_name canónico
+    _BAND_NAME_MAP = {
+        'SR_QA_AEROSOL': 'QA_AEROSOL',
+        'QA_PIXEL':      'QA_PIXEL',
+        'QA_RADSAT':     'QA_RADSAT',
+        'SR_B3':         'SR_B3',
+        'SR_B5':         'SR_B5',
+        'SR_B6':         'SR_B6',
+        'SR_B2':         'SR_B2',
+        'SR_B4':         'SR_B4',
+    }
+
     def _extract_band_name(self, filename: str) -> Optional[str]:
-        """
-        Extrae el nombre de la banda desde el nombre del archivo
-        
-        Args:
-            filename: Nombre del archivo (ej: LC08_..._SR_B3.TIF)
-        
-        Returns:
-            Optional[str]: Nombre de la banda o None
-        """
-        parts = filename.split('_')
-        
-        for i, part in enumerate(parts):
-            if part in ['SR', 'ST', 'QA']:
-                if i + 1 < len(parts):
-                    band = f"{part}_{parts[i+1].split('.')[0]}"
-                    return band
-        
-        if 'MTL' in filename.upper():
+        """Extrae el nombre canónico de la banda desde el nombre del archivo."""
+        upper = filename.upper()
+        if 'MTL' in upper:
             return 'MTL'
-        
+        for suffix, canonical in self._BAND_NAME_MAP.items():
+            if suffix in upper:
+                return canonical
         return None
     
     def _ingest_single_band(
@@ -568,99 +623,43 @@ class BronzeIngestion:
             year: Año de adquisición
             entity_id: Entity ID
         """
-        target_table = f"bronze.landsat_bands_{year}"
-        temp_table = f"bronze.temp_ingest_{uuid.uuid4().hex}"
-        
         if self.dry_run:
-            self.logger.info(f"DRY-RUN: Would ingest band '{band_name}' for scene {entity_id} (file: {tif_file.name}) into {target_table}.")
-            self.logger.debug(f"DRY-RUN: raster2pgsql command would be: raster2pgsql -d -t 512x512 -s 32618 -F {tif_file} {temp_table}")
-            self.logger.debug(f"DRY-RUN: SQL INSERT/UPDATE would be: INSERT INTO {target_table} ...; UPDATE {target_table} ...")
+            self.logger.info(
+                f"DRY-RUN: ingesta omitida — {band_name} escena {entity_id}"
+            )
             return
 
-        # Usamos -d para DROP/CREATE de la tabla temporal
-        # -Y conserva COPY statement en lugar de INSERT, mas rapido
-        # Eliminado -s 32618 para permitir autodetección del SRID del GeoTIFF
-        raster2pgsql_cmd = [
-            'raster2pgsql',
-            '-d',  # Drop and recreate (create mode)
-            '-t', '512x512',
-            '-F',
-            str(tif_file),
-            temp_table
-        ]
-        
-        psql_cmd = [
-            'psql',
-            self.db_conn_str
-        ]
-        
-        self.logger.debug(f"Ingesting {band_name} for {entity_id} via {temp_table}")
-        
-        raster2pgsql_proc = subprocess.Popen(
-            raster2pgsql_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        
-        psql_proc = subprocess.Popen(
-            psql_cmd,
-            stdin=raster2pgsql_proc.stdout,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        
-        raster2pgsql_proc.stdout.close()
-        
-        stdout, stderr = psql_proc.communicate()
-        
-        # stdout contiene el output de psql, que puede ser verboso si hay mensajes informativos
-        # Lo omitimos para no llenar el log con geometrías si por error se logueara el input
-        # if stdout:
-        #    self.logger.debug(f"psql stdout: {stdout.decode().strip()}")
-        if stderr:
-            stderr_text = stderr.decode().strip()
-            # PostgreSQL envía NOTICES a stderr. Si es un aviso de que la tabla no existe (normal al usar -d), lo logueamos como INFO.
-            if "NOTICE" in stderr_text and "does not exist, skipping" in stderr_text:
-                self.logger.info(f"psql notice: {stderr_text}")
-            else:
-                self.logger.error(f"psql stderr: {stderr_text}")
-        
-        if psql_proc.returncode != 0:
-            raise RuntimeError(f"raster2pgsql | psql failed: {stderr.decode()}")
-        
-        conn = psycopg2.connect(self.db_conn_str)
-        cursor = conn.cursor()
-        
-        try:
-            # Insertar en tabla destino desde temporal
-            cursor.execute(
-                f"""
-                INSERT INTO {target_table} (scene_id, band_name, year, rast, filename)
-                SELECT %s, %s, %s, rast, filename 
-                FROM {temp_table};
-                """,
-                (scene_id, band_name, year)
-            )
-            
-            # Borrar tabla temporal
-            cursor.execute(f"DROP TABLE IF EXISTS {temp_table}")
-            
+        self.logger.debug(f"Cargando {band_name} de {entity_id} via ST_FromGDALRaster")
+
+        tif_bytes = tif_file.read_bytes()
+
+        with psycopg2.connect(self.db_conn_str) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SET postgis.gdal_enabled_drivers = 'ENABLE_ALL';")
+                cur.execute(
+                    """
+                    INSERT INTO aculeo_raw.landsat_bands
+                        (scene_id, band_name, year, rast, filename)
+                    SELECT %s, %s, %s, tile.rast, %s
+                    FROM ST_Tile(
+                        ST_FromGDALRaster(%s),
+                        512, 512, TRUE
+                    ) AS tile(rast)
+                    """,
+                    (
+                        scene_id,
+                        band_name,
+                        year,
+                        tif_file.name,
+                        psycopg2.Binary(tif_bytes),
+                    ),
+                )
             conn.commit()
-            
-        except Exception as e:
-            conn.rollback()
-            try:
-                with psycopg2.connect(self.db_conn_str) as clean_conn:
-                    with clean_conn.cursor() as clean_cursor:
-                         clean_cursor.execute(f"DROP TABLE IF EXISTS {temp_table}")
-                         clean_conn.commit()
-            except:
-                pass
-            raise e
-            
-        finally:
-            cursor.close()
-            conn.close()
+
+        self.logger.info(
+            f"Banda {band_name} ({tif_file.stat().st_size / 1_048_576:.1f} MB) "
+            f"cargada — escena {entity_id}"
+        )
         
         
         
@@ -677,20 +676,27 @@ class BronzeIngestion:
         cursor = conn.cursor()
         
         try:
-            cursor.execute(
-                "SELECT entity_id FROM bronze.landsat_scenes WHERE entity_id = ANY(%s)",
-                (entity_ids,)
-            )
+            # entity_id en BD = LANDSAT_PRODUCT_ID = displayId de la API M2M
+            # Excluye escenas sin bandas para que sean re-procesadas (ej: fallo de disco)
+            cursor.execute("""
+                SELECT s.entity_id
+                FROM aculeo_raw.landsat_scenes s
+                WHERE s.entity_id = ANY(%s)
+                  AND EXISTS (
+                    SELECT 1 FROM aculeo_raw.landsat_bands b
+                    WHERE b.scene_id = s.scene_id
+                  )
+            """, (entity_ids,))
             return [row[0] for row in cursor.fetchall()]
         finally:
             cursor.close()
             conn.close()
     
     def _log_download_success(self, entity_id: str, band_name: str, tif_file: Path, download_url: str, download_duration_seconds: float):
-        """Registra una descarga exitosa en bronze.download_log"""
+        """Registra una descarga exitosa en aculeo_raw.download_log"""
         if self.dry_run:
-            simulated_file_size_mb = 100.0 # Use a dummy size for dry-run logging
-            self.logger.info(f"DRY-RUN: Would log successful download for {entity_id}/{band_name} (URL: {download_url}, Duration: {download_duration_seconds:.2f}s, Size: {simulated_file_size_mb:.2f}MB)")
+            dur = f"{download_duration_seconds:.2f}s" if download_duration_seconds is not None else "N/A"
+            self.logger.info(f"DRY-RUN: Would log successful download for {entity_id}/{band_name} (Duration: {dur})")
             return
 
         conn = psycopg2.connect(self.db_conn_str)
@@ -701,7 +707,7 @@ class BronzeIngestion:
             
             cursor.execute(
                 """
-                INSERT INTO bronze.download_log (
+                INSERT INTO aculeo_raw.download_log (
                     entity_id, band_name, download_status, file_size_mb,
                     download_url, download_duration_seconds
                 ) VALUES (%s, %s, %s, %s, %s, %s)
@@ -715,9 +721,10 @@ class BronzeIngestion:
             conn.close()
     
     def _log_download_failure(self, entity_id: str, band_name: str, download_url: str, download_duration_seconds: Optional[float], error_message: str):
-        """Registra un fallo de descarga en bronze.download_log"""
+        """Registra un fallo de descarga en aculeo_raw.download_log"""
         if self.dry_run:
-            self.logger.warning(f"DRY-RUN: Would log FAILED download for {entity_id}/{band_name} (URL: {download_url}, Duration: {download_duration_seconds:.2f}s, Error: {error_message})")
+            dur = f"{download_duration_seconds:.2f}s" if download_duration_seconds is not None else "N/A"
+            self.logger.warning(f"DRY-RUN: Would log FAILED download for {entity_id}/{band_name} (Duration: {dur}, Error: {error_message})")
             return
             
         conn = psycopg2.connect(self.db_conn_str)
@@ -726,7 +733,7 @@ class BronzeIngestion:
         try:
             cursor.execute(
                 """
-                INSERT INTO bronze.download_log (
+                INSERT INTO aculeo_raw.download_log (
                     entity_id, band_name, download_status, error_message,
                     download_url, download_duration_seconds
                 ) VALUES (%s, %s, %s, %s, %s, %s)

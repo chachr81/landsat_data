@@ -21,8 +21,14 @@ from .utils import (
     setup_logger,
     geojson_to_m2m_spatial_filter,
     format_file_size,
-    get_sensor_from_entity_id
 )
+
+# Delays para no ser tratados como ataque de denegacion de servicio
+_INTER_API_DELAY      = 1.5   # segundos entre llamadas a la API M2M
+_INTER_DOWNLOAD_DELAY = 2.0   # segundos entre descargas individuales
+_INTER_SCENE_DELAY    = 5.0   # segundos entre escenas procesadas
+_DOWNLOAD_APP_RETRIES = 3     # reintentos a nivel aplicacion por archivo
+_DOWNLOAD_BACKOFF     = [5, 15, 30]  # segundos de espera entre reintentos
 
 
 class M2MClient:
@@ -62,12 +68,12 @@ class M2MClient:
         """
         # Cargar credenciales
         env = load_env()
-        self.username = username or env.get('M2M_USERNAME')
-        self.token = token or env.get('M2M_TOKEN')
+        self.username = username or env.get('USGS_USERNAME')
+        self.token = token or env.get('USGS_API_TOKEN')
         self.dry_run = dry_run # Store dry_run flag
         
         if not self.username or not self.token:
-            raise ValueError("M2M credentials not found. Set M2M_USERNAME and M2M_TOKEN in .env")
+            raise ValueError("M2M credentials not found. Set USGS_USERNAME and USGS_API_TOKEN in .env")
         
         # Configuración
         self.base_url = self.BASE_URL
@@ -192,7 +198,7 @@ class M2MClient:
         
         url = f"{self.base_url}{endpoint}"
         headers = {'X-Auth-Token': self.api_key}
-        
+
         try:
             response = self.session.post(
                 url,
@@ -200,16 +206,32 @@ class M2MClient:
                 headers=headers,
                 timeout=self.timeout
             )
+
+            # Token expirado — reautenticar y reintentar una vez
+            if response.status_code == 401:
+                self.logger.warning("Token expirado, reautenticando...")
+                if self.login():
+                    headers = {'X-Auth-Token': self.api_key}
+                    response = self.session.post(
+                        url, json=payload, headers=headers, timeout=self.timeout
+                    )
+                else:
+                    raise RuntimeError("Reautenticacion fallida")
+
             response.raise_for_status()
-            
             data = response.json()
-            
+
             if data.get('errorCode'):
-                self.logger.error(f"API error on {endpoint}: {data['errorCode']} - {data['errorMessage']}")
+                self.logger.error(
+                    f"API error on {endpoint}: {data['errorCode']} - {data['errorMessage']}"
+                )
                 if exit_on_error:
                     sys.exit(1)
                 return None
-            
+
+            # Pausa cortesia entre llamadas API
+            time.sleep(_INTER_API_DELAY)
+
             if return_full_response:
                 return data
             return data.get('data')
@@ -466,94 +488,94 @@ class M2MClient:
                 (éxito, ruta_archivo, mensaje_error, url, duración_descarga_segundos)
         """
         if self.dry_run:
-            self.logger.info(f"DRY-RUN: Simulated download of {url} for {entity_id}. No actual download or disk write.")
-            # Simulate a small random duration for dry run
-            simulated_duration = 0.5 + (hash(url) % 100) / 100.0 # Just to vary it a bit
-            
-            # Create a more realistic dummy filename for dry-run that _extract_band_name can parse
-            # Example: LC90000002026000_SR_B4.tif
-            # Extract basic part of entity_id for filename
-            entity_part = entity_id.split('_')[0] if '_' in entity_id else entity_id
-            dummy_filename = f"{entity_part}_SR_B4.tif" # Mock as a band 4 file
-            
-            dummy_filepath = output_dir / dummy_filename
-            return True, dummy_filepath, None, url, simulated_duration
+            self.logger.info(f"DRY-RUN: descarga simulada de {url} para {entity_id}")
+            simulated_duration = 0.5 + (hash(url) % 100) / 100.0
+            entity_part  = entity_id.split('_')[0] if '_' in entity_id else entity_id
+            dummy_path   = output_dir / f"{entity_part}_SR_B4.tif"
+            return True, dummy_path, None, url, simulated_duration
 
-        start_time = time.time()
-        download_duration_seconds = None
-        try:
-            self.logger.info(f"Downloading from {url}")
-            
+        for attempt in range(_DOWNLOAD_APP_RETRIES):
+            start_time = time.time()
+            try:
+                result = self._attempt_download(url, output_dir, entity_id)
+                duration = time.time() - start_time
+                if result[0]:   # exito
+                    time.sleep(_INTER_DOWNLOAD_DELAY)
+                    return result[0], result[1], result[2], url, duration
+                # Fallo no-excepcion (JSON inesperado, archivo vacio)
+                error_msg = result[2]
+                self.logger.warning(
+                    f"Intento {attempt + 1}/{_DOWNLOAD_APP_RETRIES} fallido "
+                    f"para {entity_id}: {error_msg}"
+                )
+            except Exception as exc:
+                duration   = time.time() - start_time
+                error_msg  = str(exc)
+                self.logger.warning(
+                    f"Intento {attempt + 1}/{_DOWNLOAD_APP_RETRIES} fallido "
+                    f"para {entity_id}: {exc}"
+                )
+
+            if attempt < _DOWNLOAD_APP_RETRIES - 1:
+                wait = _DOWNLOAD_BACKOFF[attempt]
+                self.logger.info(f"Reintentando en {wait}s...")
+                time.sleep(wait)
+
+        return False, None, f"Fallido tras {_DOWNLOAD_APP_RETRIES} intentos", url, time.time() - start_time
+
+    def _attempt_download(
+        self,
+        url:        str,
+        output_dir: Path,
+        entity_id:  str,
+    ) -> Tuple[bool, Optional[Path], Optional[str]]:
+        """Un intento de descarga. Lanza excepcion en error de red."""
+        import re
+
+        self.logger.info(f"Descargando {url}")
+        response = self.session.get(url, stream=True, timeout=self.timeout)
+
+        # Token expirado en descarga
+        if response.status_code == 401:
+            self.logger.warning("Token expirado en descarga, reautenticando...")
+            self.login()
             response = self.session.get(url, stream=True, timeout=self.timeout)
-            response.raise_for_status()
-            
-            # Intentar obtener nombre de archivo desde Content-Disposition
-            content_disposition = response.headers.get('content-disposition')
-            filename = None
-            
-            if content_disposition:
-                # Ejemplo: attachment; filename="LC08_L2SP_..._SR_B1.TIF"
-                import re
-                fname_match = re.search(r'filename="?([^"]+)"?', content_disposition)
-                if fname_match:
-                    filename = fname_match.group(1)
-            
-            # Fallback: Extraer nombre de archivo desde URL si no hay header
-            if not filename:
-                parsed_url = urlparse(url)
-                filename = Path(unquote(parsed_url.path)).name
-                
-            # Si aún no tenemos un nombre válido o es genérico, intentar inferir o loguear warning
-            if not filename or filename == 'download':
-                 # Último recurso, usar entity_id y timestamp para evitar sobreescritura, pero esto romperá el parser de bandas
-                 filename = f"unknown_file_{entity_id}_{int(time.time())}.dat"
-                 self.logger.warning(f"Could not determine filename for {entity_id}. Using: {filename}")
 
-            filepath = output_dir / filename
-            
-            # Verificar Content-Type. Si es JSON, probablemente es un error o redirección inesperada.
-            content_type = response.headers.get('Content-Type', '').lower()
-            if 'application/json' in content_type:
-                error_msg = f"Download failed for {entity_id}: Unexpected JSON response (Content-Type: {content_type}). Likely invalid/expired signature or file not found."
-                self.logger.error(error_msg)
-                if filepath.exists():
-                    filepath.unlink() # Eliminar archivo JSON incorrecto
-                return False, None, error_msg, url, None
-            
-            # Descargar con progress
-            total_size = int(response.headers.get('content-length', 0))
-            downloaded = 0
-            
-            with open(filepath, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-            
-            # Verificar tamaño
-            file_size = filepath.stat().st_size
-            
-            if file_size == 0:
-                error_msg = f"Downloaded file is empty: {filepath}"
-                self.logger.warning(error_msg)
-                filepath.unlink()  # Eliminar archivo vacío
-                return False, None, error_msg, url, None
-            
-            end_time = time.time()
-            download_duration_seconds = end_time - start_time
+        response.raise_for_status()
 
-            self.logger.info(
-                f"Downloaded {filename} ({format_file_size(file_size)}) for {entity_id} in {download_duration_seconds:.2f}s"
-            )
-            
-            return True, filepath, None, url, download_duration_seconds
-            
-        except Exception as e:
-            end_time = time.time()
-            download_duration_seconds = end_time - start_time # Still log duration even if it failed
-            error_msg = f"Download failed for {entity_id}: {e}"
-            self.logger.error(error_msg)
-            return False, None, error_msg, url, download_duration_seconds
+        content_type = response.headers.get('Content-Type', '').lower()
+        if 'application/json' in content_type:
+            msg = f"Respuesta JSON inesperada (URL expirada o archivo no encontrado)"
+            return False, None, msg
+
+        # Nombre de archivo
+        filename = None
+        cd = response.headers.get('content-disposition', '')
+        if cd:
+            m = re.search(r'filename="?([^"]+)"?', cd)
+            if m:
+                filename = m.group(1)
+        if not filename:
+            filename = Path(unquote(urlparse(url).path)).name
+        if not filename or filename == 'download':
+            filename = f"unknown_{entity_id}_{int(time.time())}.dat"
+            self.logger.warning(f"Nombre de archivo no determinado para {entity_id}")
+
+        filepath = output_dir / filename
+
+        with filepath.open('wb') as fh:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    fh.write(chunk)
+
+        if filepath.stat().st_size == 0:
+            filepath.unlink()
+            return False, None, "Archivo descargado vacio"
+
+        self.logger.info(
+            f"Descargado {filename} ({format_file_size(filepath.stat().st_size)})"
+        )
+        return True, filepath, None
     
     def download_files_parallel(
         self,

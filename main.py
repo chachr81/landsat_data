@@ -10,7 +10,158 @@ from datetime import datetime
 # Importar los módulos necesarios del paquete ETL
 from etl.bronze_ingestion import BronzeIngestion
 from etl.m2m_client import M2MClient
-from etl.utils import setup_logger, load_config
+from etl.utils import setup_logger, load_config, get_db_connection_string, load_env
+import psycopg2
+
+def handle_process_clear(args):
+    """Procesa aculeo_raw -> aculeo_clear: aplica QA, calcula indices espectrales."""
+    from etl.utils import setup_logger, load_env, get_ssh_tunnel
+    from etl.clear_processor import ClearProcessor
+
+    logger = setup_logger('ClearProcessor', level='INFO')
+    env    = load_env()
+
+    with get_ssh_tunnel(env, remote_port_key='DB_PORT') as local_port:
+        processor = ClearProcessor(
+            sscuenca_id=args.cuenca,
+            local_port=local_port,
+            logger=logger,
+        )
+        stats = processor.process_pending(index_types=args.indices)
+
+    logger.info(f"aculeo_clear — procesadas={stats['processed']} "
+                f"omitidas={stats['skipped']} fallidas={stats['failed']}")
+
+
+def handle_analyze(args):
+    """Silver + Gold para una cuenca: Bronze→aculeo_clear→aculeo_metricas."""
+    from etl.utils import setup_logger, load_env, get_ssh_tunnel, get_db_connection_string
+    from etl.clear_processor import ClearProcessor
+    from etl.analysis.data_providers import SpectralIndexExtractor, WaterMetricsWriter
+    from etl.analysis.water_detector import WaterBodyDetector
+    from etl.analysis.pipeline import MetricsPipeline
+    import psycopg2
+
+    logger = setup_logger('Analyze', level='INFO')
+    logger.info(f"Iniciando analisis para cuenca {args.cuenca}"
+                + (" [DRY-RUN]" if args.dry_run else ""))
+
+    env = load_env()
+
+    with get_ssh_tunnel(env, remote_port_key='DB_PORT') as local_port:
+        conn_str = get_db_connection_string(env, local_port=local_port)
+
+        if args.dry_run:
+            with psycopg2.connect(conn_str) as conn:
+                with conn.cursor() as cur:
+                    # Escenas pendientes para Silver
+                    cur.execute("""
+                        SELECT COUNT(DISTINCT s.scene_id)
+                        FROM aculeo_raw.landsat_scenes s
+                        WHERE NOT EXISTS (
+                            SELECT 1 FROM aculeo_clear.spectral_indices ci
+                            WHERE ci.scene_id    = s.scene_id
+                              AND ci.sscuenca_id = %s
+                              AND ci.index_type  = ANY(%s)
+                        )
+                    """, (args.cuenca, args.indices))
+                    pending_silver = cur.fetchone()[0]
+
+                    # Escenas ya en aculeo_clear listas para Gold
+                    gold_query = """
+                        SELECT COUNT(DISTINCT scene_id)
+                        FROM aculeo_clear.spectral_indices
+                        WHERE sscuenca_id = %s
+                    """
+                    gold_params = [args.cuenca]
+                    if args.year:
+                        gold_query += " AND year = %s"
+                        gold_params.append(args.year)
+                    cur.execute(gold_query, gold_params)
+                    ready_gold = cur.fetchone()[0]
+
+                    # Escenas ya procesadas en Gold
+                    metrics_query = """
+                        SELECT COUNT(DISTINCT scene_id)
+                        FROM aculeo_metricas.water_metrics
+                        WHERE sscuenca_id = %s
+                    """
+                    metrics_params = [args.cuenca]
+                    if args.year:
+                        metrics_query += " AND year = %s"
+                        metrics_params.append(args.year)
+                    cur.execute(metrics_query, metrics_params)
+                    done_gold = cur.fetchone()[0]
+
+            logger.info(f"[DRY-RUN] Silver — escenas pendientes de procesar : {pending_silver}")
+            logger.info(f"[DRY-RUN] Gold   — escenas listas en aculeo_clear : {ready_gold}")
+            logger.info(f"[DRY-RUN] Gold   — escenas ya en aculeo_metricas  : {done_gold}")
+            logger.info(f"[DRY-RUN] Gold   — escenas a procesar             : {ready_gold - done_gold}")
+            return
+
+        # --- Silver: Bronze → aculeo_clear ---
+        clear = ClearProcessor(
+            sscuenca_id=args.cuenca,
+            local_port=local_port,
+            logger=logger,
+        )
+        clear_stats = clear.process_pending(index_types=args.indices)
+        logger.info(
+            f"Silver completado: {clear_stats['processed']} procesadas, "
+            f"{clear_stats['skipped']} omitidas, {clear_stats['failed']} fallidas"
+        )
+
+        # --- Gold: aculeo_clear → aculeo_metricas ---
+        extractor = SpectralIndexExtractor(local_port=local_port)
+        writer    = WaterMetricsWriter(local_port=local_port)
+        detector  = WaterBodyDetector()
+
+        pipeline = MetricsPipeline(
+            extractor=extractor,
+            writer=writer,
+            detector=detector,
+            logger=logger,
+            sscuenca_id=args.cuenca,
+        )
+
+        with psycopg2.connect(conn_str) as conn:
+            with conn.cursor() as cur:
+                query = """
+                    SELECT DISTINCT ci.scene_id
+                    FROM aculeo_clear.spectral_indices ci
+                    WHERE ci.sscuenca_id = %s
+                """
+                params = [args.cuenca]
+                if args.year:
+                    query += " AND ci.year = %s"
+                    params.append(args.year)
+                cur.execute(query, params)
+                scenes = [row[0] for row in cur.fetchall()]
+
+        if not scenes:
+            logger.warning("Sin indices en aculeo_clear para analizar.")
+            return
+
+        logger.info(f"{len(scenes)} escenas con indices a procesar.")
+        for scene_id in scenes:
+            pipeline.process_scene(scene_id, index_types=args.indices)
+
+        logger.info("Analisis completado.")
+
+
+def handle_plot(args):
+    """Genera gráficas de serie temporal desde aculeo_metricas."""
+    import subprocess
+    logger = setup_logger('Plot', level='INFO')
+    logger.info(f"Generando gráfica para cuenca {args.cuenca} (Indice: {args.index})")
+    script_path = "scripts/plot_water_variation.py"
+    cmd = [".venv/bin/python", script_path,
+           "--cuenca", str(args.cuenca), "--index", args.index, "--out", args.out]
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error ejecutando script de gráficas: {e}")
+
 
 def handle_ingest(args):
     """
@@ -30,13 +181,8 @@ def handle_ingest(args):
         print(f"Error en formato de fecha: {e}")
         sys.exit(1)
 
-    # Configurar logging
     log_level = args.log_level or config.get('logging', {}).get('level', 'INFO')
-    logger = setup_logger(
-        'BronzeETL',
-        log_file=f'ingest_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log',
-        level=log_level
-    )
+    logger = setup_logger('BronzeETL', level=log_level)
     
     logger.info("--- INICIO PROCESO DE INGESTA ---")
     logger.info(f"Periodo: {args.start} - {args.end}")
@@ -47,8 +193,7 @@ def handle_ingest(args):
     
     try:
         max_clouds = args.clouds or config.get('m2m', {}).get('max_cloud_cover', 40)
-        
-        # Obtener los m2m_name de los datasets seleccionados desde la config
+
         selected_datasets = None
         if args.datasets:
             all_datasets_config = config.get('datasets', {})
@@ -59,25 +204,29 @@ def handle_ingest(args):
             if not all(selected_datasets):
                 logger.error("Uno o más datasets seleccionados no se encontraron en la configuración.")
                 sys.exit(1)
-        
-        ingestion = BronzeIngestion(
-            start_date=args.start,
-            end_date=args.end,
-            max_cloud_cover=max_clouds,
-            logger=logger,
-            dry_run=args.dry_run # Pass the dry_run flag
-        )
-        
-        stats = ingestion.run(datasets=selected_datasets)
-        
+
+        from etl.utils import load_env, get_ssh_tunnel
+        env = load_env()
+
+        with get_ssh_tunnel(env, remote_port_key='DB_PORT') as local_port:
+            ingestion = BronzeIngestion(
+                start_date=args.start,
+                end_date=args.end,
+                max_cloud_cover=max_clouds,
+                logger=logger,
+                dry_run=args.dry_run,
+                local_port=local_port,
+            )
+            stats = ingestion.run(datasets=selected_datasets)
+
         logger.info("--- RESUMEN DE INGESTA ---")
         logger.info(f"Escenas encontradas: {stats['total_scenes']}")
         logger.info(f"Procesadas OK:       {stats['successful_scenes']}")
         logger.info(f"Fallidas:            {stats['failed_scenes']}")
-        
+
         if stats['failed_scenes'] > 0:
             sys.exit(1)
-            
+
     except Exception as e:
         logger.error(f"Error fatal en ingesta: {e}", exc_info=True)
         sys.exit(1)
@@ -160,6 +309,39 @@ def main():
     parser_cleanup.add_argument('--dry-run', action='store_true', help='Simular borrado sin ejecutarlo')
     parser_cleanup.add_argument('--force', action='store_true', help='Borrar sin pedir confirmación')
     parser_cleanup.set_defaults(func=handle_cleanup)
+    
+    # --- Subcomando: process-clear ---
+    parser_clear = subparsers.add_parser(
+        'process-clear',
+        help='Aplica QA, recorta y calcula indices espectrales (aculeo_raw -> aculeo_clear)'
+    )
+    parser_clear.add_argument('--cuenca', type=int, default=411, help='sscuenca_id (default: 411)')
+    parser_clear.add_argument(
+        '--indices', nargs='+', choices=['MNDWI', 'NDWI'], default=['MNDWI', 'NDWI'],
+        help='Indices a calcular (default: MNDWI NDWI)'
+    )
+    parser_clear.set_defaults(func=handle_process_clear)
+
+    # --- Subcomando: analyze ---
+    parser_analyze = subparsers.add_parser(
+        'analyze',
+        help='Deteccion estadistica de agua y metricas (aculeo_clear -> aculeo_metricas)'
+    )
+    parser_analyze.add_argument('--cuenca', type=int, default=411, help='sscuenca_id (default: 411)')
+    parser_analyze.add_argument(
+        '--indices', nargs='+', choices=['MNDWI', 'NDWI'], default=['MNDWI', 'NDWI'],
+        help='Indices a analizar (default: MNDWI NDWI)'
+    )
+    parser_analyze.add_argument('--year', type=int, help='Procesar solo este año (opcional)')
+    parser_analyze.add_argument('--dry-run', action='store_true', help='Solo reportar conteos, sin procesar')
+    parser_analyze.set_defaults(func=handle_analyze)
+
+    # --- Subcomando: plot ---
+    parser_plot = subparsers.add_parser('plot', help='Generar gráficas de series de tiempo')
+    parser_plot.add_argument('--cuenca', type=int, required=True, help='ID de la subsubcuenca (ej: 411)')
+    parser_plot.add_argument('--index', type=str, default='MNDWI', choices=['MNDWI', 'NDWI'], help='Índice a graficar')
+    parser_plot.add_argument('--out', type=str, default='water_variation.png', help='Ruta de salida de la gráfica')
+    parser_plot.set_defaults(func=handle_plot)
     
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
