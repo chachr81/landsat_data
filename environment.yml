@@ -9,10 +9,8 @@ dependencies:
   - jupyterlab
   - ipywidgets
 
-  # Core Geospatial & Data Stack
-  - pyspark=4.0.1
+  # Core Geospatial
   - geopandas=1.1.1
-  - apache-sedona=1.8.0
   - numpy=2.3.5
   - scipy=1.16.3
   - matplotlib=3.10.7
