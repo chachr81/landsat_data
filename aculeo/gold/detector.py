@@ -16,6 +16,7 @@ El threshold puede ser negativo (p.ej. -0.14). Esto es correcto
 cuando la transicion agua/tierra ocurre en esa zona del histograma.
 """
 
+import logging
 import numpy as np
 from dataclasses import dataclass, field
 from typing import Optional
@@ -23,6 +24,8 @@ from scipy import ndimage, stats
 from scipy.stats import norm
 from sklearn.mixture import GaussianMixture
 from sklearn.tree import DecisionTreeClassifier
+
+_log = logging.getLogger(__name__)
 
 
 # -------------------------------------------------------
@@ -45,7 +48,7 @@ class WaterComponent:
 @dataclass
 class DetectionResult:
     classification_status:      str     # 'water_detected','no_water','low_quality'
-    threshold:                  float
+    threshold:                  Optional[float]
     bimodality_coefficient:     float
     total_water_area_km2:       float
     water_pixels_count:         int
@@ -54,6 +57,8 @@ class DetectionResult:
     scene_index_median:         float
     mndwi_water_mean:           float
     mndwi_water_std:            float
+    gmm_separation:             float = 0.0
+    confidence_score:           float = 0.0
     water_mask:                 Optional[np.ndarray] = field(default=None, repr=False)
 
 
@@ -67,17 +72,16 @@ class WaterBodyDetector:
     usando inferencia estadistica pura, sin poligono de referencia.
     """
 
-    _BIMODALITY_THRESHOLD   = 0.555   # Sarle: >0.555 indica bimodalidad
-    _MIN_SEPARATION_STD     = 0.5     # separacion minima entre medias GMM (en sigmas)
-    _MIN_VALID_PIXEL_RATIO  = 0.15    # descartar escenas con <15% pixeles validos
-    _MIN_WATER_PIXELS       = 9       # minimo de pixeles para considerar cuerpo de agua
+    _MIN_SEPARATION_STD     = 2.5    # separacion minima entre medias GMM (en sigmas del componente)
+    _MIN_VALID_PIXEL_RATIO  = 0.15
+    _MIN_WATER_PIXELS       = 9
 
-    # Filtros calibrados para Laguna de Aculeo
-    _THRESHOLD_RANGE        = (-0.334, -0.003)  # rango valido del umbral GMM calibrado para Aculeo
-    _WATER_MODE_MEAN_RANGE  = (-0.50, 0.15)   # media del modo agua en el GMM
-    _MAX_WATER_AREA_KM2     = 15.0            # area maxima historica del lago + margen
-    _MIN_COMPACTNESS        = 0.03            # filtrar componentes muy elongados
-    _MAX_CENTROID_DIST_M    = 5000.0          # distancia maxima al centroide de referencia
+    # Rango válido del threshold GMM según estación austral (ver _get_threshold_range)
+    _THRESHOLD_RANGE_SUMMER = (-0.40, 0.10)   # oct–mar: suelo seco, alta separación
+    _THRESHOLD_RANGE_WINTER = (-0.35, 0.05)   # abr–sep: suelos húmedos, rango más estricto
+    _MAX_WATER_AREA_KM2     = 12.0
+    _MIN_COMPACTNESS        = 0.03
+    _MAX_CENTROID_DIST_M    = 1000.0
 
     def __init__(self, pixel_area_km2: float = 0.0009):
         self._pixel_area_km2 = pixel_area_km2
@@ -88,6 +92,7 @@ class WaterBodyDetector:
         pixel_area_km2:   Optional[float] = None,
         ref_centroid_px:  Optional[tuple]  = None,
         res_m:            float             = 30.0,
+        month:            Optional[int]     = None,
     ) -> DetectionResult:
         """
         Args:
@@ -96,6 +101,8 @@ class WaterBodyDetector:
                              coordenadas de pixel. Si se provee, filtra componentes
                              demasiado alejados del lago conocido.
             res_m:           resolución espacial en metros (para cálculo de distancia).
+            month:           mes de adquisición (1–12), usado para seleccionar rango
+                             estacional del threshold.
         """
         effective_area = pixel_area_km2 if pixel_area_km2 is not None else self._pixel_area_km2
         valid_values = index_array[~np.isnan(index_array)]
@@ -110,21 +117,17 @@ class WaterBodyDetector:
         scene_median = float(np.median(valid_values))
         bim_coef = self._sarle_bimodality(valid_values)
 
-        if bim_coef < self._BIMODALITY_THRESHOLD:
-            return self._no_water_result('no_water', bim_coef, scene_median, None)
+        threshold, is_separated, gmm_separation = self._gmm_threshold(valid_values)
+        thr_lo, thr_hi = self._get_threshold_range(month)
 
-        threshold, is_separated, water_mode_mean = self._gmm_threshold(valid_values)
-
-        # Filtro 1: rango de threshold calibrado para el lago
-        if not (self._THRESHOLD_RANGE[0] <= threshold <= self._THRESHOLD_RANGE[1]):
-            return self._no_water_result('no_water', bim_coef, scene_median, threshold)
-
-        # Filtro 2: media del modo agua debe ser físicamente plausible
-        if not (self._WATER_MODE_MEAN_RANGE[0] <= water_mode_mean <= self._WATER_MODE_MEAN_RANGE[1]):
-            return self._no_water_result('no_water', bim_coef, scene_median, threshold)
+        # Filtro 1: rango de threshold calibrado para el lago (estacional)
+        if not (thr_lo <= threshold <= thr_hi):
+            _log.debug("F1_threshold: thr=%.4f fuera de (%.2f, %.2f)", threshold, thr_lo, thr_hi)
+            return self._no_water_result('no_water', bim_coef, scene_median, threshold, gmm_separation)
 
         if not is_separated:
-            return self._no_water_result('no_water', bim_coef, scene_median, threshold)
+            _log.debug("F3_separation: GMM no separado (thr=%.4f)", threshold)
+            return self._no_water_result('no_water', bim_coef, scene_median, threshold, gmm_separation)
 
         water_mask = (~np.isnan(index_array)) & (index_array > threshold)
 
@@ -134,14 +137,16 @@ class WaterBodyDetector:
         components, labeled = self._extract_components(water_mask, index_array, effective_area)
 
         if not components:
-            return self._no_water_result('no_water', bim_coef, scene_median, threshold)
+            _log.debug("F4_components: sin componentes tras water_mask (thr=%.4f)", threshold)
+            return self._no_water_result('no_water', bim_coef, scene_median, threshold, gmm_separation)
 
         lake_components = self._classify_components(
             components, ref_centroid_px=ref_centroid_px, res_m=res_m
         )
 
         if not lake_components:
-            return self._no_water_result('no_water', bim_coef, scene_median, threshold)
+            _log.debug("F5_classify: %d componentes descartados por geometría/centroide", len(components))
+            return self._no_water_result('no_water', bim_coef, scene_median, threshold, gmm_separation)
 
         lake_mask = np.zeros_like(water_mask)
         for comp in lake_components:
@@ -150,6 +155,8 @@ class WaterBodyDetector:
         lake_values = index_array[lake_mask & ~np.isnan(index_array)]
         total_area  = sum(c.area_km2 for c in lake_components)
         main_comp   = max(lake_components, key=lambda c: c.area_km2)
+
+        conf = self._compute_confidence(bim_coef, gmm_separation, main_comp.compactness, valid_ratio)
 
         return DetectionResult(
             classification_status      = 'water_detected',
@@ -162,6 +169,8 @@ class WaterBodyDetector:
             scene_index_median         = scene_median,
             mndwi_water_mean           = float(np.nanmean(lake_values)) if lake_values.size else 0.0,
             mndwi_water_std            = float(np.nanstd(lake_values))  if lake_values.size else 0.0,
+            gmm_separation             = gmm_separation,
+            confidence_score           = conf,
             water_mask                 = lake_mask,
         )
 
@@ -192,8 +201,13 @@ class WaterBodyDetector:
 
     def _gmm_threshold(self, values: np.ndarray) -> tuple[float, bool, float]:
         """
-        Ajusta GMM de 2 componentes.
-        Retorna (threshold, is_well_separated, water_mode_mean).
+        Ajusta GMM de 2 componentes y retorna la frontera bayesiana óptima.
+
+        Returns:
+            (threshold, is_separated, separation_ratio)
+            threshold        : frontera bayesiana argmin|dens_water − dens_land|
+            is_separated     : True si la separación ≥ _MIN_SEPARATION_STD
+            separation_ratio : separación entre medias / std ponderado (métrica de calidad)
         """
         sample = values if values.size <= 50_000 else np.random.choice(values, 50_000, replace=False)
         X = sample.reshape(-1, 1)
@@ -214,14 +228,17 @@ class WaterBodyDetector:
         land_idx  = 1 - water_idx
 
         if separation < self._MIN_SEPARATION_STD:
-            return float(np.mean(means)), False, float(means[water_idx])
+            return float(np.mean(means)), False, separation
 
-        x_scan     = np.linspace(min(means), max(means), 1000)
+        # Frontera bayesiana óptima: punto donde dens_water == dens_land.
+        # Se extiende el scan 0.5σ más allá de las medias para cubrir cruces asimétricos.
+        margin = float(stds.max()) * 0.5
+        x_scan = np.linspace(min(means) - margin, max(means) + margin, 2000)
         dens_water = weights[water_idx] * norm.pdf(x_scan, means[water_idx], stds[water_idx])
         dens_land  = weights[land_idx]  * norm.pdf(x_scan, means[land_idx],  stds[land_idx])
-        threshold  = float(x_scan[np.argmin(dens_water + dens_land)])
+        threshold  = float(x_scan[np.argmin(np.abs(dens_water - dens_land))])
 
-        return threshold, True, float(means[water_idx])
+        return threshold, True, separation
 
     # -------------------------------------------------------
     # Componentes conectados y features
@@ -354,12 +371,47 @@ class WaterBodyDetector:
     # Helpers
     # -------------------------------------------------------
 
+    def _get_threshold_range(self, month: Optional[int]) -> tuple[float, float]:
+        """
+        Rango válido del threshold GMM según estación austral.
+        Invierno (abr–sep): suelos húmedos elevan el pico de "tierra", rango más estricto.
+        Verano  (oct–mar): suelo seco, alta separación bimodal, rango completo.
+        """
+        if month is not None and 4 <= month <= 9:
+            return self._THRESHOLD_RANGE_WINTER
+        return self._THRESHOLD_RANGE_SUMMER
+
+    def _compute_confidence(
+        self,
+        bim_coef:       float,
+        gmm_separation: float,
+        compactness:    float,
+        valid_ratio:    float,
+    ) -> float:
+        """
+        Score 0–1 de calidad de la detección. Combina cuatro señales normalizadas:
+          - bimodalidad Sarle   (25 %): calidad espectral de la escena
+          - separación GMM      (35 %): claridad de la frontera agua/tierra
+          - compacidad          (25 %): consistencia morfológica del lago detectado
+          - ratio de píxeles válidos (15 %): cobertura de la escena tras QA
+        """
+        def _clamp(x: float) -> float:
+            return max(0.0, min(1.0, x))
+
+        sarle   = _clamp(bim_coef / 0.7)
+        sep     = _clamp(gmm_separation / 2.0)
+        compact = _clamp(compactness / 0.5)
+        quality = _clamp(valid_ratio)
+
+        return round(0.25 * sarle + 0.35 * sep + 0.25 * compact + 0.15 * quality, 4)
+
     def _no_water_result(
         self,
-        status: str,
-        bim_coef: float,
-        scene_median: float,
-        threshold: float
+        status:         str,
+        bim_coef:       float,
+        scene_median:   float,
+        threshold:      Optional[float],
+        gmm_separation: float = 0.0,
     ) -> DetectionResult:
         return DetectionResult(
             classification_status      = status,
@@ -372,5 +424,7 @@ class WaterBodyDetector:
             scene_index_median         = scene_median,
             mndwi_water_mean           = 0.0,
             mndwi_water_std            = 0.0,
+            gmm_separation             = gmm_separation,
+            confidence_score           = 0.0,
             water_mask                 = None,
         )
