@@ -36,7 +36,7 @@ def handle_process_clear(args):
 
 def handle_analyze(args):
     """Silver + Gold para una cuenca: Bronze→aculeo_clear→aculeo_metricas."""
-    from aculeo.infra.config import setup_logger, load_env
+    from aculeo.infra.config import load_env
     from aculeo.infra.db import get_ssh_tunnel, get_db_connection_string
     from aculeo.silver.processor import ClearProcessor
     from aculeo.gold.providers import SpectralIndexExtractor, WaterMetricsWriter
