@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "aculeo-monitor"
-version = "0.1.1"
+version = "0.1.2"
 description = "Monitoreo de Laguna de Aculeo — Pipeline Medallion (Bronze/Silver/Gold) sobre Landsat C2L2"
 requires-python = ">=3.11"
 dependencies = [
