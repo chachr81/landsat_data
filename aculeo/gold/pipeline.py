@@ -124,6 +124,8 @@ class MetricsPipeline:
             'mndwi_water_mean':          detection.mndwi_water_mean,
             'mndwi_water_std':           detection.mndwi_water_std,
             'bimodality_coefficient':    detection.bimodality_coefficient,
+            'gmm_separation':            detection.gmm_separation,
+            'confidence_score':          detection.confidence_score,
             'valid_pixels_ratio':        valid_ratio,
             'scene_cloud_cover':         metadata['cloud_cover'],
             'classification_status':     detection.classification_status,

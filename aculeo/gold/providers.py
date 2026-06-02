@@ -109,6 +109,7 @@ class WaterMetricsWriter(IMetricsWriter):
             'total_water_area_km2', 'valid_pixels_ratio', 'scene_cloud_cover',
             'mndwi_threshold_used', 'scene_index_median', 'mndwi_water_mean',
             'mndwi_water_std', 'bimodality_coefficient', 'main_component_compactness',
+            'gmm_separation', 'confidence_score',
         ]
         result = dict(metric_data)
         for f in fields:
@@ -139,6 +140,7 @@ class WaterMetricsWriter(IMetricsWriter):
                         mndwi_threshold_used, scene_index_median,
                         mndwi_water_mean,     mndwi_water_std,
                         bimodality_coefficient,
+                        gmm_separation,       confidence_score,
                         valid_pixels_ratio,   scene_cloud_cover,
                         classification_status,
                         water_geom
@@ -151,6 +153,7 @@ class WaterMetricsWriter(IMetricsWriter):
                         %(mndwi_threshold_used)s, %(scene_index_median)s,
                         %(mndwi_water_mean)s,     %(mndwi_water_std)s,
                         %(bimodality_coefficient)s,
+                        %(gmm_separation)s,       %(confidence_score)s,
                         %(valid_pixels_ratio)s,   %(scene_cloud_cover)s,
                         %(classification_status)s,
                         CASE WHEN %(water_geom)s IS NULL THEN NULL
