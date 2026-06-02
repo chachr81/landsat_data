@@ -19,7 +19,6 @@ from ..infra.config import (
     load_config,
     load_env,
     setup_logger,
-    geojson_to_m2m_spatial_filter,
     format_file_size,
 )
 
@@ -635,49 +634,6 @@ class M2MClient:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit"""
         self.logout()
-
-
-# =====================================================
-# FUNCIONES DE CONVENIENCIA
-# =====================================================
-
-def get_required_bands_for_sensor(sensor: str, config: Optional[Dict] = None) -> List[str]:
-    """
-    Obtiene la lista de bandas requeridas para un sensor
-    
-    Args:
-        sensor: Tipo de sensor ('OLI', 'ETM+', 'TM')
-        config: Configuración (opcional, se carga si es None)
-    
-    Returns:
-        List[str]: Lista de nombres de bandas
-    """
-    if config is None:
-        config = load_config()
-    
-    # Mapeo de sensores a datasets
-    sensor_to_dataset = {
-        'OLI': 'landsat_8_9',
-        'ETM+': 'landsat_7',
-        'TM': 'landsat_5'
-    }
-    
-    dataset_key = sensor_to_dataset.get(sensor)
-    if not dataset_key:
-        return []
-    
-    dataset_config = config.get('datasets', {}).get(dataset_key, {})
-    bands = dataset_config.get('bands', {})
-    
-    # Retornar todas las bandas configuradas
-    return [
-        bands.get('green'),
-        bands.get('swir1'),
-        bands.get('qa_pixel'),
-        bands.get('qa_radsat'),
-        bands.get('qa_aerosol'),
-        bands.get('metadata')
-    ]
 
 
 if __name__ == '__main__':

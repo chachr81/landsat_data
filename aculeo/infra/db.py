@@ -43,8 +43,9 @@ def get_db_connection_string(env: Optional[Dict] = None, local_port: Optional[in
     host = '127.0.0.1' if local_port else parsed.hostname
     port = local_port  if local_port else parsed.port
 
+    db_path = parsed.path if (parsed.path and parsed.path not in ('', '/')) else '/maps_negentropy'
     new_parsed = parsed._replace(
         netloc=f"{auth_part}{host}:{port}",
-        path='/maps_negentropy',
+        path=db_path,
     )
     return urlunparse(new_parsed)

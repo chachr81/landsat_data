@@ -37,14 +37,12 @@ class MetricsPipeline:
         detector:    WaterBodyDetector,
         logger:      Optional[logging.Logger] = None,
         sscuenca_id: int = 411,
-        water_threshold: float = 0.0,
     ):
         self._extractor      = extractor
         self._writer         = writer
         self._detector       = detector
         self._logger         = logger or logging.getLogger(__name__)
         self._sscuenca_id    = sscuenca_id
-        self._water_threshold = water_threshold
 
     def process_scene(self, scene_id: int, index_types: list[str]) -> dict:
         """
@@ -92,11 +90,14 @@ class MetricsPipeline:
             ref_centroid_px = (ref_row, ref_col)
 
         pixel_area_km2 = (res_m ** 2) / 1_000_000.0
+        month = metadata['acquisition_date'].month  # int 1-12 para calibración estacional
+
         detection = self._detector.detect(
             index_arr,
             pixel_area_km2=pixel_area_km2,
             ref_centroid_px=ref_centroid_px,
             res_m=res_m,
+            month=month,
         )
         self._logger.info(
             f"scene_id={scene_id} {idx_type}: "
