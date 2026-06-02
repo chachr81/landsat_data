@@ -1,10 +1,11 @@
 <div align="center">
 
-# Aculeo Monitor
+# Aculeo Lake Monitor
 
 **Pipeline de monitoreo hidrológico de Laguna de Aculeo sobre datos Landsat C2L2**
 
 <p>
+  <img src="https://img.shields.io/badge/version-0.1.2-green.svg" alt="Version">
   <img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/PostgreSQL-18.3-blue.svg" alt="PostgreSQL">
   <img src="https://img.shields.io/badge/PostGIS-3.6-orange.svg" alt="PostGIS">
@@ -108,8 +109,17 @@ USGS M2M API
 | `water_index_type` | TEXT | `MNDWI` / `NDWI` |
 | `total_water_area_km2` | REAL | Área del espejo detectado |
 | `mndwi_threshold_used` | REAL | Umbral GMM de Bayes (NULL si no se corrió GMM) |
+| `gmm_separation` | REAL | Separación en σ entre modos GMM agua/tierra |
+| `confidence_score` | REAL | Score 0–1 de confianza en la detección |
 | `classification_status` | TEXT | `water_detected` / `no_water` / `low_quality` |
 | `water_geom` | GEOMETRY(MULTIPOLYGON, 32619) | Geometría del espejo detectado |
+
+### Vistas Gold
+| Vista | Descripción |
+|---|---|
+| `aculeo_metricas.v_serie_temporal` | Serie temporal completa por índice |
+| `aculeo_metricas.v_resumen_anual` | Agrega por año; cota de 12 km² |
+| `aculeo_metricas.v_consenso_escenas` | Une MNDWI y NDWI por escena; `consensus_status` = `high_confidence` / `low_confidence` / `no_water`; `consensus_area_km2` = intersección geométrica MNDWI∩NDWI en km² |
 
 ## Instalación y Configuración
 
@@ -163,14 +173,17 @@ psql ... -f sql/schemas/02_silver_gold_metrics.sql
 
 El detector (`aculeo/gold/detector.py`) aplica una cadena de filtros calibrados para Laguna de Aculeo:
 
-1. **Calidad mínima**: descartar escenas con menos del 15% de píxeles válidos tras QA
-2. **Bimodalidad Sarle**: coeficiente de Sarle > 0.555
-3. **Rango de threshold GMM**: umbral observado entre -0.003 y -0.334, mediana -0.16 (fuera de rango → `no_water`)
-4. **Media del modo agua**: rango plausible calibrado para el lago
+1. **Calidad mínima**: descartar escenas con menos del 15% de píxeles válidos tras QA (`_MIN_VALID_PIXEL_RATIO = 0.15`)
+2. **GMM 2 componentes**: ajuste Gaussiano Mixture Model; threshold = frontera bayesiana óptima (`argmin|dens_agua − dens_tierra|`)
+3. **Rango de threshold estacional**:
+   - Verano austral (oct–mar): `(-0.40, 0.10)` - suelo seco
+   - Invierno austral (abr–sep): `(-0.35, 0.05)` - suelos húmedos
+4. **Separación GMM**: modos deben estar a ≥ 0.5σ de distancia (`_MIN_SEPARATION_STD`)
 5. **Closing morfológico 3×3**: rellena huecos internos no insulares
-6. **Área máxima**: 15 km² (histórico Aculeo menor a 12 km²)
+6. **Área máxima por componente**: 12 km² (`_MAX_WATER_AREA_KM2`; histórico Aculeo ≤ 10.34 km²)
 7. **Compacidad mínima**: 0.03, descarta sombras elongadas y canales
-8. **Centroide de referencia**: máximo 5 km desde (322635, -3746696) en SRID 32619
+8. **Centroide de referencia**: máximo 1 km desde (322635, -3746696) en SRID 32619
+9. **`confidence_score`** (0 - 1): reportado en `water_metrics` para cada detección
 
 ## Documentación Adicional
 
@@ -236,8 +249,17 @@ USGS M2M API
 | `water_index_type` | TEXT | `MNDWI` / `NDWI` |
 | `total_water_area_km2` | REAL | Detected water area |
 | `mndwi_threshold_used` | REAL | GMM Bayes threshold (NULL if GMM not run) |
+| `gmm_separation` | REAL | Separation in σ between water/land GMM modes |
+| `confidence_score` | REAL | Detection confidence score 0–1 |
 | `classification_status` | TEXT | `water_detected` / `no_water` / `low_quality` |
 | `water_geom` | GEOMETRY(MULTIPOLYGON, 32619) | Detected water body geometry |
+
+### Gold Views
+| View | Description |
+|---|---|
+| `aculeo_metricas.v_serie_temporal` | Full time series by index |
+| `aculeo_metricas.v_resumen_anual` | Aggregated by year; 12 km² cap |
+| `aculeo_metricas.v_consenso_escenas` | Joins MNDWI and NDWI per scene; `consensus_status` = `high_confidence` / `low_confidence` / `no_water`; `consensus_area_km2` = geometric intersection MNDWI∩NDWI in km² |
 
 ## Installation and Setup
 
@@ -281,14 +303,17 @@ cp .env.example .env   # fill in real credentials
 
 The detector (`aculeo/gold/detector.py`) applies a calibrated filter chain for Laguna de Aculeo:
 
-1. **Minimum quality**: discard scenes with less than 15% valid pixels after QA
-2. **Sarle bimodality**: Sarle coefficient > 0.555
-3. **GMM threshold range**: observed range -0.003 to -0.334, median -0.16 (out-of-range yields `no_water`)
-4. **Water mode mean**: plausible range calibrated for the lake
-5. **Morphological closing 3x3**: fills internal non-island gaps
-6. **Maximum area**: 15 km² (historical Aculeo below 12 km²)
+1. **Minimum quality**: discard scenes with less than 15% valid pixels after QA (`_MIN_VALID_PIXEL_RATIO = 0.15`)
+2. **GMM 2-component fit**: threshold = optimal Bayesian boundary (`argmin|dens_water − dens_land|`)
+3. **Seasonal threshold range**:
+   - Austral summer (Oct–Mar): `(-0.40, 0.10)` - dry soil
+   - Austral winter (Apr–Sep): `(-0.35, 0.05)` - moist soil
+4. **GMM separation**: modes must be ≥ 0.5σ apart (`_MIN_SEPARATION_STD`)
+5. **Morphological closing 3×3**: fills internal non-island gaps
+6. **Maximum area per component**: 12 km² (`_MAX_WATER_AREA_KM2`; historical Aculeo ≤ 10.34 km²)
 7. **Minimum compactness**: 0.03, discards elongated shadows and channels
-8. **Reference centroid**: maximum 5 km from (322635, -3746696) in SRID 32619
+8. **Reference centroid**: maximum 1 km from (322635, -3746696) in SRID 32619
+9. **`confidence_score`** (0 - 1): stored in `water_metrics` for each detection
 
 ## Additional Documentation
 
