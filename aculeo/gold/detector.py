@@ -1,19 +1,21 @@
 """
-Detector estadistico de espejo de agua usando GMM y analisis de componentes.
+Detector estadístico de espejo de agua usando GMM y análisis de componentes.
 
 Flujo por escena:
-  1. Test de bimodalidad (coeficiente de Sarle)
-     - Unimodal → sin agua detectada
-     - Bimodal  → continuar
-  2. GMM (2 componentes) sobre valores validos del indice
-     - Threshold = frontera optima de Bayes entre componentes
-  3. Mascara binaria → scipy.ndimage.label → componentes conectados
-  4. Features por componente: area, compacidad, elongacion
-  5. Clasificacion: lago vs. canal/sombra via sklearn DecisionTreeClassifier
-     con pseudo-etiquetas derivadas del GMM sobre features de componentes
+  1. Calidad mínima: valid_ratio ≥ _MIN_VALID_PIXEL_RATIO (15%)
+  2. GMM (2 componentes) sobre valores válidos del índice
+     - Threshold = frontera óptima de Bayes: argmin|dens_water − dens_land|
+     - Separación ≥ _MIN_SEPARATION_STD → is_separated
+  3. Filtro estacional: threshold en rango según estación austral (ver _get_threshold_range)
+  4. Máscara binaria → binary_closing(3×3) → scipy.ndimage.label → componentes conectados
+  5. Filtros geométricos/espaciales por componente: área, compacidad, centroide
+  6. Clasificación lago vs. canal/sombra via sklearn DecisionTreeClassifier
 
 El threshold puede ser negativo (p.ej. -0.14). Esto es correcto
-cuando la transicion agua/tierra ocurre en esa zona del histograma.
+cuando la transición agua/tierra ocurre en esa zona del histograma.
+
+DetectionResult.threshold es None cuando la escena es low_quality (valid_ratio < 15%)
+ya que GMM no llega a ejecutarse.
 """
 
 import logging
@@ -72,7 +74,7 @@ class WaterBodyDetector:
     usando inferencia estadistica pura, sin poligono de referencia.
     """
 
-    _MIN_SEPARATION_STD     = 2.5    # separacion minima entre medias GMM (en sigmas del componente)
+    _MIN_SEPARATION_STD     = 2.5     # recalibrado desde 0.5: unimodal produce ~1.7, bimodal ~6.2
     _MIN_VALID_PIXEL_RATIO  = 0.15
     _MIN_WATER_PIXELS       = 9
 
@@ -120,7 +122,7 @@ class WaterBodyDetector:
         threshold, is_separated, gmm_separation = self._gmm_threshold(valid_values)
         thr_lo, thr_hi = self._get_threshold_range(month)
 
-        # Filtro 1: rango de threshold calibrado para el lago (estacional)
+        # Rango de threshold estacional
         if not (thr_lo <= threshold <= thr_hi):
             _log.debug("F1_threshold: thr=%.4f fuera de (%.2f, %.2f)", threshold, thr_lo, thr_hi)
             return self._no_water_result('no_water', bim_coef, scene_median, threshold, gmm_separation)
@@ -131,7 +133,7 @@ class WaterBodyDetector:
 
         water_mask = (~np.isnan(index_array)) & (index_array > threshold)
 
-        # Filtro 3: closing morfológico para rellenar gaps internos no insulares
+        # Closing morfológico para rellenar huecos internos
         water_mask = ndimage.binary_closing(water_mask, structure=np.ones((3, 3)))
 
         components, labeled = self._extract_components(water_mask, index_array, effective_area)
