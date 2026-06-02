@@ -4,19 +4,18 @@ Entry Point Principal - GIS Engine
 Uso: python main.py [comando] [opciones]
 """
 import argparse
+import logging
 import sys
 from datetime import datetime
 
 # Importar los módulos necesarios del paquete ETL
 from aculeo.bronze.ingestion import BronzeIngestion
 from aculeo.bronze.m2m_client import M2MClient
-from aculeo.infra.config import setup_logger, load_config, load_env
-from aculeo.infra.db import get_db_connection_string
-import psycopg2
+from aculeo.infra.config import setup_logger, load_config
 
 def handle_process_clear(args):
     """Procesa aculeo_raw -> aculeo_clear: aplica QA, calcula indices espectrales."""
-    from aculeo.infra.config import setup_logger, load_env
+    from aculeo.infra.config import load_env
     from aculeo.infra.db import get_ssh_tunnel
     from aculeo.silver.processor import ClearProcessor
 
@@ -31,8 +30,8 @@ def handle_process_clear(args):
         )
         stats = processor.process_pending(index_types=args.indices)
 
-    logger.info(f"aculeo_clear — procesadas={stats['processed']} "
-                f"omitidas={stats['skipped']} fallidas={stats['failed']}")
+    logger.info("aculeo_clear — procesadas=%s omitidas=%s fallidas=%s",
+                stats['processed'], stats['skipped'], stats['failed'])
 
 
 def handle_analyze(args):
@@ -46,8 +45,11 @@ def handle_analyze(args):
     import psycopg2
 
     logger = setup_logger('Analyze', level='INFO')
-    logger.info(f"Iniciando analisis para cuenca {args.cuenca}"
-                + (" [DRY-RUN]" if args.dry_run else ""))
+    if args.verbose:
+        logging.getLogger('aculeo.gold.detector').setLevel(logging.DEBUG)
+    logger.info("Iniciando analisis para cuenca %s%s",
+                args.cuenca,
+                " [DRY-RUN]" if args.dry_run else "")
 
     env = load_env()
 
@@ -96,10 +98,22 @@ def handle_analyze(args):
                     cur.execute(metrics_query, metrics_params)
                     done_gold = cur.fetchone()[0]
 
-            logger.info(f"[DRY-RUN] Silver — escenas pendientes de procesar : {pending_silver}")
-            logger.info(f"[DRY-RUN] Gold   — escenas listas en aculeo_clear : {ready_gold}")
-            logger.info(f"[DRY-RUN] Gold   — escenas ya en aculeo_metricas  : {done_gold}")
-            logger.info(f"[DRY-RUN] Gold   — escenas a procesar             : {ready_gold - done_gold}")
+            logger.info(
+                "[DRY-RUN] Silver — escenas pendientes de procesar : %s",
+                pending_silver
+            )
+            logger.info(
+                "[DRY-RUN] Gold   — escenas listas en aculeo_clear : %s",
+                ready_gold
+            )
+            logger.info(
+                "[DRY-RUN] Gold   — escenas ya en aculeo_metricas  : %s",
+                done_gold
+            )
+            logger.info(
+                "[DRY-RUN] Gold   — escenas a procesar             : %s",
+                ready_gold - done_gold
+            )
             return
 
         # --- Silver: Bronze → aculeo_clear ---
@@ -110,8 +124,10 @@ def handle_analyze(args):
         )
         clear_stats = clear.process_pending(index_types=args.indices)
         logger.info(
-            f"Silver completado: {clear_stats['processed']} procesadas, "
-            f"{clear_stats['skipped']} omitidas, {clear_stats['failed']} fallidas"
+            "Silver completado: %s procesadas, %s omitidas, %s fallidas",
+            clear_stats["processed"],
+            clear_stats["skipped"],
+            clear_stats["failed"],
         )
 
         # --- Gold: aculeo_clear → aculeo_metricas ---
@@ -145,7 +161,7 @@ def handle_analyze(args):
             logger.warning("Sin indices en aculeo_clear para analizar.")
             return
 
-        logger.info(f"{len(scenes)} escenas con indices a procesar.")
+        logger.info("%d escenas con indices a procesar.", len(scenes))
         for scene_id in scenes:
             pipeline.process_scene(scene_id, index_types=args.indices)
 
@@ -156,14 +172,14 @@ def handle_plot(args):
     """Genera gráficas de serie temporal desde aculeo_metricas."""
     import subprocess
     logger = setup_logger('Plot', level='INFO')
-    logger.info(f"Generando gráfica para cuenca {args.cuenca} (Indice: {args.index})")
+    logger.info("Generando gráfica para cuenca %s (Indice: %s)", args.cuenca, args.index)
     script_path = "aculeo/viz/time_series.py"
     cmd = [".venv/bin/python", script_path,
            "--cuenca", str(args.cuenca), "--index", args.index, "--out", args.out]
     try:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
-        logger.error(f"Error ejecutando script de gráficas: {e}")
+        logger.error("Error ejecutando script de gráficas: %s", e)
 
 
 def handle_ingest(args):
@@ -172,7 +188,7 @@ def handle_ingest(args):
     """
     # ... (contenido existente de handle_ingest) ...
     config = load_config()
-    
+
     # Validar fechas
     try:
         start_date = datetime.strptime(args.start, '%Y-%m-%d')
@@ -188,14 +204,23 @@ def handle_ingest(args):
     logger = setup_logger('BronzeETL', level=log_level)
     
     logger.info("--- INICIO PROCESO DE INGESTA ---")
-    logger.info(f"Periodo: {args.start} - {args.end}")
-    
+    logger.info("Periodo: %s - %s", args.start, args.end)
+
     if args.dry_run:
-        logger.warning("MODO DRY-RUN ACTIVADO: Simulación de ejecución. No se descargarán ni insertarán datos.")
-        print("MODO DRY-RUN ACTIVADO: La ejecución simulará todas las fases sin efectos secundarios en disco o base de datos.")
-    
+        logger.warning(
+            "MODO DRY-RUN ACTIVADO: Simulación de ejecución. "
+            "No se descargarán ni insertarán datos."
+        )
+        print(
+            "MODO DRY-RUN ACTIVADO: La ejecución simulará todas las fases "
+            "sin efectos secundarios en disco o base de datos."
+        )
+
     try:
-        max_clouds = args.clouds or config.get('m2m', {}).get('max_cloud_cover', 40)
+        max_clouds = args.clouds or config.get(
+            'm2m',
+            {},
+        ).get('max_cloud_cover', 40)
 
         selected_datasets = None
         if args.datasets:
@@ -205,12 +230,16 @@ def handle_ingest(args):
                 for ds in args.datasets
             ]
             if not all(selected_datasets):
-                logger.error("Uno o más datasets seleccionados no se encontraron en la configuración.")
+                logger.error(
+                    "Uno o más datasets seleccionados no se encontraron "
+                    "en la configuración."
+                )
                 sys.exit(1)
 
-        from aculeo.infra.config import load_env
+        import psycopg2
+        from aculeo.infra.config import load_env as load_environment
         from aculeo.infra.db import get_ssh_tunnel
-        env = load_env()
+        env = load_environment()
 
         with get_ssh_tunnel(env, remote_port_key='DB_PORT') as local_port:
             ingestion = BronzeIngestion(
@@ -224,16 +253,17 @@ def handle_ingest(args):
             stats = ingestion.run(datasets=selected_datasets)
 
         logger.info("--- RESUMEN DE INGESTA ---")
-        logger.info(f"Escenas encontradas: {stats['total_scenes']}")
-        logger.info(f"Procesadas OK:       {stats['successful_scenes']}")
-        logger.info(f"Fallidas:            {stats['failed_scenes']}")
+        logger.info("Escenas encontradas: %s", stats['total_scenes'])
+        logger.info("Procesadas OK:       %s", stats['successful_scenes'])
+        logger.info("Fallidas:            %s", stats['failed_scenes'])
 
         if stats['failed_scenes'] > 0:
             sys.exit(1)
 
-    except Exception as e:
-        logger.error(f"Error fatal en ingesta: {e}", exc_info=True)
+    except (IOError, ValueError, KeyError, psycopg2.Error) as e:
+        logger.error("Error fatal en ingesta: %s", e, exc_info=True)
         sys.exit(1)
+
 
 def handle_cleanup(args):
     """
@@ -241,12 +271,12 @@ def handle_cleanup(args):
     Limpia listas de escenas específicas en M2M API.
     """
     logger = setup_logger('CleanupLists', level='INFO')
-    
+
     if args.dry_run:
         logger.warning("MODO DRY-RUN: Solo se simulará el borrado.")
-    
+
     lists_to_delete = args.list_id
-    
+
     if not lists_to_delete:
         logger.info("No se especificaron listas para borrar.")
         return
@@ -254,7 +284,7 @@ def handle_cleanup(args):
     print(f"\nSe han seleccionado {len(lists_to_delete)} listas para borrar:")
     for lid in lists_to_delete:
         print(f"  - {lid}")
-    
+
     if args.dry_run:
         print("\n[DRY-RUN] Se borrarían estas listas.")
         return
@@ -264,7 +294,7 @@ def handle_cleanup(args):
         if confirm.lower() != 'y':
             print("Operación cancelada.")
             return
-    
+
     try:
         with M2MClient(logger=logger, dry_run=args.dry_run) as client:
             print("\nIniciando borrado...")
@@ -272,14 +302,20 @@ def handle_cleanup(args):
             for lid in lists_to_delete:
                 if client.delete_list(lid):
                     deleted_count += 1
-            
-            logger.info(f"Limpieza completada. Listas borradas: {deleted_count}/{len(lists_to_delete)}")
+
+            logger.info(
+                "Limpieza completada. Listas borradas: %s/%s",
+                deleted_count,
+                len(lists_to_delete),
+            )
 
     except Exception as e:
-        logger.error(f"Error durante la limpieza: {e}")
+        logger.error("Error durante la limpieza: %s", e)
         sys.exit(1)
 
+
 def main():
+    """Punto de entrada principal del CLI."""
     # Cargar config para obtener la lista de datasets para el CLI
     try:
         config = load_config()
@@ -291,66 +327,161 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="GIS Engine - CLI de Gestión de Datos Landsat",
-        epilog="Ejemplo: python main.py ingest --start 2024-01-01 --end 2024-01-31"
+        epilog=(
+            "Ejemplo: python main.py ingest --start 2024-01-01 "
+            "--end 2024-01-31"
+        ),
     )
-    
-    subparsers = parser.add_subparsers(dest='command', help='Comandos disponibles')
+
+    subparsers = parser.add_subparsers(
+        dest='command',
+        help='Comandos disponibles',
+    )
     subparsers.required = True
-    
+
     # --- Subcomando: ingest ---
-    parser_ingest = subparsers.add_parser('ingest', help='Ingesta de datos Landsat (Capa Bronze)')
+    parser_ingest = subparsers.add_parser(
+        'ingest',
+        help='Ingesta de datos Landsat (Capa Bronze)',
+    )
     parser_ingest.add_argument('--start', required=True, help='Fecha inicio (YYYY-MM-DD)')
     parser_ingest.add_argument('--end', required=True, help='Fecha fin (YYYY-MM-DD)')
-    parser_ingest.add_argument('--clouds', type=int, help='Max cobertura de nubes %% (default: config)')
-    parser_ingest.add_argument('--datasets', nargs='+', choices=available_datasets, help='Datasets específicos (default: todos)')
-    parser_ingest.add_argument('--log-level', choices=['DEBUG', 'INFO', 'WARNING'], help='Nivel de log (default: config)')
-    parser_ingest.add_argument('--dry-run', action='store_true', help='Ejecutar sin descargar/insertar')
+    parser_ingest.add_argument(
+        '--clouds',
+        type=int,
+        help='Max cobertura de nubes %% (default: config)',
+    )
+    parser_ingest.add_argument(
+        '--datasets',
+        nargs='+',
+        choices=available_datasets,
+        help='Datasets específicos (default: todos)',
+    )
+    parser_ingest.add_argument(
+        '--log-level',
+        choices=['DEBUG', 'INFO', 'WARNING'],
+        help='Nivel de log (default: config)',
+    )
+    parser_ingest.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Ejecutar sin descargar/insertar',
+    )
     parser_ingest.set_defaults(func=handle_ingest)
-    
+
     # --- Subcomando: cleanup-lists ---
-    parser_cleanup = subparsers.add_parser('cleanup-lists', help='Limpiar listas de escenas específicas en M2M')
-    parser_cleanup.add_argument('--list-id', required=True, nargs='+', help='ID(s) de las listas a borrar')
-    parser_cleanup.add_argument('--dry-run', action='store_true', help='Simular borrado sin ejecutarlo')
-    parser_cleanup.add_argument('--force', action='store_true', help='Borrar sin pedir confirmación')
+    parser_cleanup = subparsers.add_parser(
+        'cleanup-lists',
+        help='Limpiar listas de escenas específicas en M2M',
+    )
+    parser_cleanup.add_argument(
+        '--list-id',
+        required=True,
+        nargs='+',
+        help='ID(s) de las listas a borrar',
+    )
+    parser_cleanup.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Simular borrado sin ejecutarlo',
+    )
+    parser_cleanup.add_argument(
+        '--force',
+        action='store_true',
+        help='Borrar sin pedir confirmación',
+    )
     parser_cleanup.set_defaults(func=handle_cleanup)
-    
+
     # --- Subcomando: process-clear ---
     parser_clear = subparsers.add_parser(
         'process-clear',
-        help='Aplica QA, recorta y calcula indices espectrales (aculeo_raw -> aculeo_clear)'
+        help=(
+            'Aplica QA, recorta y calcula indices espectrales '
+            '(aculeo_raw -> aculeo_clear)'
+        ),
     )
-    parser_clear.add_argument('--cuenca', type=int, default=411, help='sscuenca_id (default: 411)')
     parser_clear.add_argument(
-        '--indices', nargs='+', choices=['MNDWI', 'NDWI'], default=['MNDWI', 'NDWI'],
-        help='Indices a calcular (default: MNDWI NDWI)'
+        '--cuenca',
+        type=int,
+        default=411,
+        help='sscuenca_id (default: 411)',
+    )
+    parser_clear.add_argument(
+        '--indices',
+        nargs='+',
+        choices=['MNDWI', 'NDWI'],
+        default=['MNDWI', 'NDWI'],
+        help='Indices a calcular (default: MNDWI NDWI)',
     )
     parser_clear.set_defaults(func=handle_process_clear)
 
     # --- Subcomando: analyze ---
     parser_analyze = subparsers.add_parser(
         'analyze',
-        help='Deteccion estadistica de agua y metricas (aculeo_clear -> aculeo_metricas)'
+        help=(
+            'Deteccion estadistica de agua y metricas '
+            '(aculeo_clear -> aculeo_metricas)'
+        ),
     )
-    parser_analyze.add_argument('--cuenca', type=int, default=411, help='sscuenca_id (default: 411)')
     parser_analyze.add_argument(
-        '--indices', nargs='+', choices=['MNDWI', 'NDWI'], default=['MNDWI', 'NDWI'],
-        help='Indices a analizar (default: MNDWI NDWI)'
+        '--cuenca',
+        type=int,
+        default=411,
+        help='sscuenca_id (default: 411)',
     )
-    parser_analyze.add_argument('--year', type=int, help='Procesar solo este año (opcional)')
-    parser_analyze.add_argument('--dry-run', action='store_true', help='Solo reportar conteos, sin procesar')
+    parser_analyze.add_argument(
+        '--indices',
+        nargs='+',
+        choices=['MNDWI', 'NDWI'],
+        default=['MNDWI', 'NDWI'],
+        help='Indices a analizar (default: MNDWI NDWI)',
+    )
+    parser_analyze.add_argument(
+        '--year',
+        type=int,
+        help='Procesar solo este año (opcional)',
+    )
+    parser_analyze.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Solo reportar conteos, sin procesar',
+    )
+    parser_analyze.add_argument(
+        '--verbose', action='store_true',
+        help='Activar logging DEBUG del detector (detalle de filtros F1–F5 por escena)'
+    )
     parser_analyze.set_defaults(func=handle_analyze)
 
     # --- Subcomando: plot ---
-    parser_plot = subparsers.add_parser('plot', help='Generar gráficas de series de tiempo')
-    parser_plot.add_argument('--cuenca', type=int, required=True, help='ID de la subsubcuenca (ej: 411)')
-    parser_plot.add_argument('--index', type=str, default='MNDWI', choices=['MNDWI', 'NDWI'], help='Índice a graficar')
-    parser_plot.add_argument('--out', type=str, default='water_variation.png', help='Ruta de salida de la gráfica')
+    parser_plot = subparsers.add_parser(
+        'plot',
+        help='Generar gráficas de series de tiempo',
+    )
+    parser_plot.add_argument(
+        '--cuenca',
+        type=int,
+        required=True,
+        help='ID de la subsubcuenca (ej: 411)',
+    )
+    parser_plot.add_argument(
+        '--index',
+        type=str,
+        default='MNDWI',
+        choices=['MNDWI', 'NDWI'],
+        help='Índice a graficar',
+    )
+    parser_plot.add_argument(
+        '--out',
+        type=str,
+        default='water_variation.png',
+        help='Ruta de salida de la gráfica',
+    )
     parser_plot.set_defaults(func=handle_plot)
-    
+
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
         sys.exit(1)
-        
+
     args = parser.parse_args()
     args.func(args)
 
