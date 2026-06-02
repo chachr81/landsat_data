@@ -78,7 +78,7 @@ El comando `analyze` ejecuta **Silver + Gold en secuencia**: primero `ClearProce
 
 PostgreSQL corre en servidor remoto (Hetzner, contenedor `negentropy_postgres`). Toda conexión pasa por túnel SSH. Requiere en `.env`: `DB_URL`, `SSH_HOST`, `SSH_USER`, `SSH_KEY_PATH`, `M2M_USERNAME`, `M2M_PASSWORD`.
 
-`get_db_connection_string()` fuerza la BD `maps_negentropy` independientemente del `DB_URL`.
+`get_db_connection_string()` respeta el path del `DB_URL`; si el URL no tiene path (o es `/`), usa `maps_negentropy` como fallback.
 
 ### Configuración
 
@@ -106,16 +106,16 @@ PostgreSQL corre en servidor remoto (Hetzner, contenedor `negentropy_postgres`).
 | `_MAX_CENTROID_DIST_M` | `1000.0` m | Radio desde centroide del lago |
 | `_MAX_WATER_AREA_KM2` | `12.0` km² | Filtro por componente individual |
 | `_MIN_COMPACTNESS` | `0.03` | Descarta sombras y canales |
-| `_MIN_SEPARATION_STD` | `0.5` | Separación mínima entre modos GMM |
+| `_MIN_SEPARATION_STD` | `2.5` | Separación mínima entre modos GMM (unimodal ~1.7, bimodal ~6.2) |
 | `_MIN_VALID_PIXEL_RATIO` | `0.15` | Escenas con <15% píxeles válidos → `low_quality` |
 
 ### Flujo de detección (filtros activos)
 
 ```
 valid_ratio ≥ 15%  →  GMM 2 componentes  →  F1: threshold en rango estacional
-→  F3: is_separated (sep ≥ 0.5σ)  →  water_mask = index > threshold
+→  F3: is_separated (sep ≥ 2.5σ)  →  water_mask = index > threshold
 →  binary_closing(3×3)  →  F4: componentes ≥ 9px
-→  F5: área ≤ 15 km², compacidad ≥ 0.03, centroide ≤ 1000 m del lago
+→  F5: área ≤ 12 km², compacidad ≥ 0.03, centroide ≤ 1000 m del lago
 →  DecisionTree sobre componentes → water_detected
 ```
 

@@ -24,7 +24,7 @@ def load_config() -> Dict:
         return yaml.safe_load(f)
 
 
-def load_env() -> Dict[str, str]:
+def load_env() -> Dict[str, Optional[str]]:
     env_path = get_project_root() / '.env'
     if not env_path.exists():
         return {}
