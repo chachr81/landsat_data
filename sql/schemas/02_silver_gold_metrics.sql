@@ -190,6 +190,8 @@ SELECT
     wm.scene_index_median,
     wm.mndwi_water_mean                           AS water_index_mean,
     wm.bimodality_coefficient,
+    wm.gmm_separation,
+    wm.confidence_score,
     wm.valid_pixels_ratio,
     wm.scene_cloud_cover,
     c.cod_sscuenca,
@@ -220,6 +222,85 @@ SELECT
 FROM aculeo_metricas.water_metrics
 GROUP BY year, water_index_type
 ORDER BY year, water_index_type;
+
+-- =====================================================
+-- ACULEO_METRICAS: Vista de consenso entre índices MNDWI y NDWI
+-- =====================================================
+-- Une las filas MNDWI y NDWI de la misma escena para clasificar
+-- la detección en tres niveles de confianza:
+--
+--   consensus_status:
+--     'high_confidence' — ambos índices detectan agua en la escena
+--     'low_confidence'  — solo uno de los dos índices detecta agua
+--     'no_water'        — ningún índice detecta agua
+--
+--   consensus_area_km2:
+--     Área de la intersección geométrica MNDWI ∩ NDWI en km².
+--     NULL si alguno de los dos no tiene geometría de agua.
+--     Usar esta columna para filtrar falsos positivos: un cuerpo de agua
+--     real aparece en ambos índices; una detección espuria (sombra de nube,
+--     suelo húmedo) normalmente solo aparece en uno.
+--
+--   water_geom_consensus:
+--     Intersección geométrica si ambas geometrías existen,
+--     o la geometría disponible si solo hay una.
+--
+-- Uso recomendado para series temporales limpias:
+--   SELECT * FROM aculeo_metricas.v_consenso_escenas
+--   WHERE consensus_status = 'high_confidence'
+--   ORDER BY acquisition_date;
+-- =====================================================
+CREATE OR REPLACE VIEW aculeo_metricas.v_consenso_escenas AS
+WITH mndwi AS (
+    SELECT scene_id, sscuenca_id, acquisition_date, year,
+           total_water_area_km2, classification_status,
+           confidence_score, water_geom
+    FROM aculeo_metricas.water_metrics
+    WHERE water_index_type = 'MNDWI'
+),
+ndwi AS (
+    SELECT scene_id, sscuenca_id, acquisition_date, year,
+           total_water_area_km2, classification_status,
+           confidence_score, water_geom
+    FROM aculeo_metricas.water_metrics
+    WHERE water_index_type = 'NDWI'
+)
+SELECT
+    COALESCE(m.scene_id,         n.scene_id)         AS scene_id,
+    COALESCE(m.sscuenca_id,      n.sscuenca_id)      AS sscuenca_id,
+    COALESCE(m.acquisition_date, n.acquisition_date) AS acquisition_date,
+    COALESCE(m.year,             n.year)              AS year,
+
+    m.total_water_area_km2                            AS mndwi_area_km2,
+    n.total_water_area_km2                            AS ndwi_area_km2,
+    m.confidence_score                                AS mndwi_confidence,
+    n.confidence_score                                AS ndwi_confidence,
+
+    CASE
+        WHEN m.classification_status = 'water_detected'
+         AND n.classification_status = 'water_detected' THEN 'high_confidence'
+        WHEN m.classification_status = 'water_detected'
+          OR n.classification_status = 'water_detected' THEN 'low_confidence'
+        ELSE 'no_water'
+    END                                               AS consensus_status,
+
+    -- Área de la intersección en km² (NULL si alguna geometría falta)
+    CASE
+        WHEN m.water_geom IS NOT NULL AND n.water_geom IS NOT NULL
+        THEN ST_Area(ST_Intersection(m.water_geom, n.water_geom)) / 1.0e6
+        ELSE NULL
+    END                                               AS consensus_area_km2,
+
+    -- Geometría consenso: intersección si ambas existen, la disponible si solo hay una
+    CASE
+        WHEN m.water_geom IS NOT NULL AND n.water_geom IS NOT NULL
+        THEN ST_Intersection(m.water_geom, n.water_geom)
+        ELSE COALESCE(m.water_geom, n.water_geom)
+    END                                               AS water_geom_consensus
+
+FROM mndwi m
+FULL OUTER JOIN ndwi n
+    ON m.scene_id = n.scene_id AND m.sscuenca_id = n.sscuenca_id;
 
 COMMENT ON SCHEMA aculeo_clear    IS 'Indices espectrales MNDWI/NDWI con QA aplicado, recortados al AOI — PoC Aculeo';
 COMMENT ON SCHEMA aculeo_metricas IS 'Metricas de area de agua y validacion estadistica por escena — PoC Aculeo';
