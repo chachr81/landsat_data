@@ -132,6 +132,10 @@ CREATE TABLE IF NOT EXISTS aculeo_metricas.water_metrics (
     mndwi_water_std              REAL,                 -- desviacion estandar del indice en agua
     bimodality_coefficient       REAL,                 -- coeficiente de bimodalidad (>0.555 = bimodal)
 
+    -- Calidad estadística de la detección GMM
+    gmm_separation               REAL,                 -- separación entre componentes GMM / std ponderado
+    confidence_score             REAL,                 -- score 0-1: combina bimodalidad, sep. GMM, compacidad y valid_ratio
+
     -- Control de calidad
     valid_pixels_ratio           REAL,
     scene_cloud_cover            REAL,
@@ -170,27 +174,28 @@ END $$;
 -- =====================================================
 CREATE OR REPLACE VIEW aculeo_metricas.v_serie_temporal AS
 SELECT
+    wm.metric_id,
+    wm.scene_id,
     wm.acquisition_date,
     wm.year,
     EXTRACT(MONTH FROM wm.acquisition_date)::int  AS month,
     wm.sensor,
     wm.water_index_type,
+    wm.classification_status,
     wm.total_water_area_km2,
     wm.water_pixels_count,
     wm.n_water_components,
     wm.main_component_compactness,
-    wm.mndwi_threshold_used,
+    wm.mndwi_threshold_used                       AS threshold_used,
     wm.scene_index_median,
-    wm.mndwi_water_mean,
+    wm.mndwi_water_mean                           AS water_index_mean,
     wm.bimodality_coefficient,
     wm.valid_pixels_ratio,
     wm.scene_cloud_cover,
-    wm.classification_status,
     c.cod_sscuenca,
-    c.nombre AS nombre_cuenca
+    c.nombre                                      AS nombre_cuenca
 FROM aculeo_metricas.water_metrics wm
-JOIN cuencas.dga_subsub_cuenca c ON wm.sscuenca_id = c.sscuenca_id
-ORDER BY wm.acquisition_date, wm.water_index_type;
+JOIN cuencas.dga_subsub_cuenca c ON wm.sscuenca_id = c.sscuenca_id;
 
 -- =====================================================
 -- ACULEO_METRICAS: Vista de resumen anual
@@ -199,18 +204,19 @@ CREATE OR REPLACE VIEW aculeo_metricas.v_resumen_anual AS
 SELECT
     year,
     water_index_type,
-    COUNT(*)                                            AS escenas_procesadas,
-    COUNT(*) FILTER (WHERE classification_status = 'water_detected')
-                                                        AS escenas_con_agua,
-    PERCENTILE_CONT(0.5) WITHIN GROUP (
-        ORDER BY total_water_area_km2
-    ) FILTER (WHERE classification_status = 'water_detected')
-                                                        AS mediana_area_km2,
-    MAX(total_water_area_km2)                           AS max_area_km2,
-    MIN(total_water_area_km2) FILTER (
-        WHERE classification_status = 'water_detected') AS min_area_km2,
-    AVG(valid_pixels_ratio)                             AS avg_valid_ratio,
-    AVG(scene_cloud_cover)                              AS avg_cloud_cover
+    COUNT(*)                                                                AS escenas_procesadas,
+    COUNT(*) FILTER (WHERE classification_status = 'water_detected')       AS escenas_con_agua,
+    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY total_water_area_km2)
+        FILTER (WHERE classification_status = 'water_detected'
+                  AND total_water_area_km2 <= 12.0)                        AS mediana_area_km2,
+    MAX(total_water_area_km2)
+        FILTER (WHERE classification_status = 'water_detected'
+                  AND total_water_area_km2 <= 12.0)                        AS max_area_km2,
+    MIN(total_water_area_km2)
+        FILTER (WHERE classification_status = 'water_detected'
+                  AND total_water_area_km2 <= 12.0)                        AS min_area_km2,
+    AVG(valid_pixels_ratio)                                                 AS avg_valid_ratio,
+    AVG(scene_cloud_cover)                                                  AS avg_cloud_cover
 FROM aculeo_metricas.water_metrics
 GROUP BY year, water_index_type
 ORDER BY year, water_index_type;
